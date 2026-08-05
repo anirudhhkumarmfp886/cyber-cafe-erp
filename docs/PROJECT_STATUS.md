@@ -59,6 +59,12 @@ Tests: full suite passes. Ruff lint clean. All migrations applied.
 7. Wired: `INSTALLED_APPS`, root URLs (`/billing/`, `/reports/`), sidebar
    (Billing, Reports enabled), migrations `billing.0001` applied. New-app
    test run green (40 tests) before full-suite re-run.
+8. **Operational fix (follow-up)**: the committed `db.sqlite3` carried stale
+   role permissions (seed_roles had only been re-run in test DBs). Staff
+   login hit 403s on Customers / Services / Daily Work Log / Billing until
+   `python3 manage.py seed_roles` was re-run against the live DB. All
+   groups now match the matrix; debug test accounts were removed from the
+   committed DB.
 
 ### Sprint 3 deliverables (built last session)
 1. **Customers** (`apps/customers/`) — profiles only (decision: wallets stay
