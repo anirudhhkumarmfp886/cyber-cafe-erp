@@ -9,7 +9,7 @@ in later sprints and will live in dedicated models next to this one.
 from django.conf import settings
 from django.db import models
 
-from apps.common.models import BaseModel
+from apps.common.models import BaseModel, money_field
 
 
 class Role(models.TextChoices):
@@ -77,6 +77,9 @@ class Employee(BaseModel):
     id_proof_number = models.CharField(max_length=50, blank=True)
     photo = models.ImageField(upload_to="employees/photos/", blank=True, null=True)
     notes = models.TextField(blank=True)
+
+    #: Standard hourly wage used by the Daily Work Log to auto-credit salary.
+    hourly_rate = money_field(default=0, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

@@ -37,10 +37,22 @@
             </a>
         </li>
         <li class="nav-item">
-            <span class="nav-link disabled">
+            <a href="{% url 'employees:worklog_list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'employees' and request.resolver_match.url_name == 'worklog_list' %}active{% endif %}">
+                <i class="bi bi-calendar-check me-2"></i>Daily Work Log
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{% url 'customers:list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'customers' %}active{% endif %}">
                 <i class="bi bi-person-vcard me-2"></i>Customers
-                <span class="badge text-bg-warning ms-1">S3</span>
-            </span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{% url 'services:list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'services' %}active{% endif %}">
+                <i class="bi bi-box-seam me-2"></i>Services
+            </a>
         </li>
         <li class="nav-item">
             <span class="nav-link disabled">

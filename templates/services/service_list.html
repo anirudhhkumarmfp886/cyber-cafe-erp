@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Services</h5>
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search...">
+        {% for field in filter_form %}
+            <div class="form-group mb-0">{{ field }}</div>
+        {% endfor %}
+        <button class="btn btn-sm btn-outline-primary">Filter</button>
+        <a href="{% url 'services:list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+    </form>
+</div>
+
+{% if service_form %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Service</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                {% if service_form.non_field_errors %}
+                    <div class="col-12">
+                        {% for error in service_form.non_field_errors %}
+                            <div class="alert alert-danger mb-0">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="col-md-3">{% include "includes/field.html" with field=service_form.name %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=service_form.category %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=service_form.unit %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=service_form.price %}</div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus me-1"></i>Save</button>
+                </div>
+                <div class="col-12">{% include "includes/field.html" with field=service_form.description %}</div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Service</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Unit</th>
+                    <th scope="col" class="text-end">Price</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for service in services %}
+                    <tr>
+                        <td class="fw-semibold">{{ service.name }}</td>
+                        <td><span class="badge text-bg-info">{{ service.get_category_display }}</span></td>
+                        <td>{{ service.unit|default:"—" }}</td>
+                        <td class="text-end fw-semibold">{{ service.price|inr }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'services:detail' service.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>View
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            <i class="bi bi-box-seam fs-2 d-block mb-2"></i>
+                            No services found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}

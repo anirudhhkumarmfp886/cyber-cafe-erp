@@ -2,7 +2,7 @@
 from django.contrib import admin
 
 from apps.common.admin import BaseAdmin
-from apps.employees.models import Employee, Wallet, WalletTransaction
+from apps.employees.models import Employee, Wallet, WalletTransaction, WorkLogEntry
 
 
 @admin.register(Employee)
@@ -31,3 +31,12 @@ class WalletTransactionAdmin(BaseAdmin):
     list_filter = ("transaction_type", "category", "entry_date")
     search_fields = ("reference_number", "description", "related_reference", "wallet__employee__full_name")
     autocomplete_fields = ("wallet",)
+
+
+@admin.register(WorkLogEntry)
+class WorkLogEntryAdmin(BaseAdmin):
+    list_display = ("employee", "work_date", "hours_worked", "rate_applied", "status", "approved_at")
+    list_filter = ("status", "work_date")
+    search_fields = ("employee__full_name", "employee__employee_code", "notes")
+    autocomplete_fields = ("employee",)
+    list_select_related = ("employee",)

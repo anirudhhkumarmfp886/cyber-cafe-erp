@@ -26,27 +26,34 @@ selectors, views stay thin.
 | Sprint | Deliverables | Status |
 |--------|--------------|--------|
 | 1 | Foundation, Auth, Roles, Permissions, Employees, Base Layout | Done |
-| 2 | Wallet Engine, Cash Book, Bank Ledger | **Done** (cleanup committed) |
-| 3 | Customers, Services, Daily Work Log | **Next** |
-| 4 | Billing, Dashboard, Reports, Analytics | Planned |
+| 2 | Wallet Engine, Cash Book, Bank Ledger | Done |
+| 3 | Customers, Services, Daily Work Log | **Done** (committed) |
+| 4 | Billing, Dashboard, Reports, Analytics | **Next** |
 
-Tests: full suite passes (details below). Ruff lint clean. All migrations
-applied (SQLite dev DB).
+Tests: full suite passes. Ruff lint clean. All migrations applied.
 
-### Sprint 2 cleanup completed in the last session
-1. Fixed `templates/finance/bank_detail.html` — statement used
-   `txn.txn_type` (nonexistent attribute), so Credit/Debit columns never
-   rendered and badges were always red. Now uses `txn.is_credit`.
-2. Fixed `apps/employees/management/commands/seed_roles.py` — Accountant
-   now matches the documented matrix: Employee = view-only, Wallet / Cash
-   Book / Bank = manage. (Previously `managed=True` granted add/change/
-   delete on every model including Employee.) Refactored to a
-   `_permissions_for(managed_models)` helper.
-3. Registered `Wallet` and `WalletTransaction` in Django admin
-   (`apps/employees/admin.py`) for auditability.
-4. Added `test_bank_detail_statement_renders_credit_and_debit_columns` in
-   `apps/employees/tests/test_wallet_views.py` to lock in fix #1.
-5. Updated `README.md` status to Sprint 2 complete.
+### Sprint 3 deliverables (built last session)
+1. **Customers** (`apps/customers/`) — profiles only (decision: wallets stay
+   employee-only). `Customer` model (full_name, phone unique, email,
+   address, `credit_limit`), `CustomerService` (create/update/deactivate/
+   restore with phone-uniqueness + non-negative credit limit rules),
+   `CustomerSelector`, `CustomerForm`, list/detail/update/deactivate views,
+   admin, list/create-on-one-page UI, templates.
+2. **Services** (`apps/services/`) — `Service` (name unique, category enum,
+   unit, price), `ServicePriceHistory` (append-only). `ServiceService`
+   mints the opening price row on create and appends a history row whenever
+   the price changes. List + detail (edit + price history) views, admin.
+3. **Daily Work Log** (in `apps/employees`) — `WorkLogEntry` (employee,
+   work_date, times, `hours_worked`, `rate_applied` snapshot, status,
+   `approved_by`/`approved_at`). `Employee.hourly_rate` added (migration
+   `employees.0003`). `WorkLogService.create_entry` derives hours from
+   start/end when given and snapshots the rate; **`approve_entry` credits
+   the employee's wallet as SALARY atomically**; `reject_entry` does not.
+   Work log list page (create + filter + approve/reject POST actions).
+4. Wired: `INSTALLED_APPS`, root URLs (`/customers/`, `/services/`,
+   `/employees/worklogs/`), sidebar (Customers, Services, Daily Work Log
+   enabled), dashboard stats (customers, services, pending work logs),
+   `seed_roles` matrix (Accountant: finance manage, new modules view-only).
 
 ---
 
@@ -66,8 +73,11 @@ applied (SQLite dev DB).
 - **Reference numbers:** minted via
   `apps.common.services.reference_service.ReferenceService` —
   `WAL-xxxxxx` (wallet), `CB-xxxxxx` (cash book), `BANK-xxxxxx` (bank).
+  Non-financial records (customers, services) don't need references.
 - **Money:** `Decimal`, `MONEY_MAX_DIGITS=18`, `MONEY_DECIMAL_PLACES=2`
-  in `config/settings/base.py`. Use the `inr` template filter.
+  in `config/settings/base.py` via the `money_field()` helper. Use the
+  `inr` template filter. **`by=` parameters always receive a `User`, never
+  an `Employee`** (audit FKs point at `accounts.User`).
 - **Roles = Django Groups.** `manage.py seed_roles` is idempotent.
   Views gate with `PermissionRequiredMixin`.
 - **Audit fields** auto-fill via `CurrentUserMiddleware` + `BaseModel.save`.
@@ -82,48 +92,63 @@ applied (SQLite dev DB).
 |--------|-----|--------|------------------|
 | Common base | `apps.common` | `BaseModel`, managers, middleware, tags | admin.py, templatetags/erp_tags.py |
 | Auth | `apps.accounts` | `User` (AbstractBaseUser), throttling | `/accounts/`, owner_bootstrap_service |
-| Employees | `apps.employees` | `Employee`, `Wallet`, `WalletTransaction` | `/employees/`, `/employees/wallets/` |
+| Employees | `apps.employees` | `Employee`, `Wallet`, `WalletTransaction`, `WorkLogEntry` | `/employees/`, `/employees/wallets/`, `/employees/worklogs/` |
 | Finance | `apps.finance` | `CashBookEntry`, `BankAccount`, `BankTransaction` | `/finance/cashbook/`, `/finance/bank/` |
+| Customers | `apps.customers` | `Customer` | `/customers/` |
+| Services | `apps.services` | `Service`, `ServicePriceHistory` | `/services/` |
 | Pages | `apps.pages` | Dashboard | `/` |
 
 Wallet service API (`apps/employees/services/wallet_service.py`):
 `credit`, `debit`, `transfer`, `balance_of`, `get_or_create_wallet`.
-Every employee gets a wallet at creation (`employee_service.py:105`).
+Every employee gets a wallet at creation (`employee_service.py`).
+
+Work log API (`apps/employees/services/worklog_service.py`):
+`create_entry`, `approve_entry` (auto SALARY credit), `reject_entry`.
 
 Finance services: `CashBookService.record_income/record_expense/balance/
 day_balance/soft_delete_entry`; `BankService.create_account/deposit/
 withdraw/transfer/balance_of`.
+
+Customer service: `CustomerService.create_customer/update_customer/
+deactivate_customer/restore_customer`.
+Service catalog: `ServiceService.create_service/update_service/
+deactivate_service/restore_service` (price changes append history).
 
 ---
 
 ## 5. Known technical debt / deferred items
 
 - Finance view tests still live in `apps/employees/tests/test_wallet_views.py`
-  (misnamed file) — no functional impact, tidy later.
+  (misnamed file) — tidy later; same applies to the newer per-app tests.
 - `db.sqlite3` is committed in the repo. For production switch to
   PostgreSQL (settings `config.settings.production`).
-- Wallet balance / bank balance are derived by SUM over all transactions;
-  with large ledgers this may need indexed range queries or caching in a
-  later sprint (Sprint 4 reporting).
-- No customer/session/billing models yet — that is Sprint 3+.
+- Wallet / bank balances are derived by SUM over all transactions; large
+  ledgers may need indexed range queries or caching in Sprint 4 reporting.
+- Customers have no wallet / receivable ledger yet (decision in Sprint 3).
+  Sprint 4 billing must model customer invoices and how they settle
+  (cash / UPI / against credit limit) — reconcile against Cash Book.
+- Daily Work Log: no duplicate-shift guard per employee+day (multiple
+  entries allowed); wage is snapshot-based, no attendance clocking.
 
 ---
 
-## 6. Next steps (Sprint 3 — Customers, Services, Daily Work Log)
+## 6. Next steps (Sprint 4 — Billing, Dashboard, Reports, Analytics)
 
 Planned scope:
-1. **Customers app** (`apps/customers/`): customer profile (name, contact,
-   wallet balance tie-in, credit limits), soft delete, service layer,
-   selectors, admin.
-2. **Services app** (`apps/services/` or inside cafe module): catalog of
-   billable services (game rates, printing, internet packages), pricing
-   history, active flag.
-3. **Daily Work Log** (`apps/attendance/` or in employees): per-employee
-   shift/work-log entries, supervisor approval, linkage to wages/wallet.
+1. **Billing** (`apps/billing/`): customer sessions/invoices, bill lines
+   (service x qty x price, using `ServicePriceHistory`), payment modes,
+   settlement against cash book / credit limit, invoice reference numbers
+   (`INV-xxxxxx`), soft delete. Money rules: totals derived from lines.
+2. **Dashboard upgrades**: today's sales, top services, pending invoices,
+   staff wallet liabilities vs cash book.
+3. **Reports** (`apps/reports/` or in finance): date-range P&L summary,
+   bank statement export, customer ledger, wallet statement, work-log
+   salary summary. CSV export for each.
+4. **Analytics**: peak hours, service popularity, per-employee sales.
 
-Recommended order: Customers → Services → Daily Work Log, each with
-`models/services/selectors/forms/views/urls/admin/tests`, followed by a
-full `ruff check` + test run.
+Recommended order: Billing models/services → billing views/forms/templates →
+dashboard stats → reports/CSV → seed_roles matrix + tests, then full
+`ruff check` + test run before committing.
 
 ---
 

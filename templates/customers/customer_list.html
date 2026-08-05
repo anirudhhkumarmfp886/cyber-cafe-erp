@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-person-vcard me-2 text-primary"></i>Customers</h5>
+    <form method="get" class="d-flex gap-2">
+        <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Search name, phone, email...">
+        <button class="btn btn-sm btn-outline-primary">Search</button>
+        <a href="{% url 'customers:list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+    </form>
+</div>
+
+{% if customer_form %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Customer</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                {% if customer_form.non_field_errors %}
+                    <div class="col-12">
+                        {% for error in customer_form.non_field_errors %}
+                            <div class="alert alert-danger mb-0">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="col-md-3">{% include "includes/field.html" with field=customer_form.full_name %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=customer_form.phone %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=customer_form.email %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=customer_form.credit_limit %}</div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Save Customer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Customer</th>
+                    <th scope="col">Phone</th>
+                    <th scope="col">City</th>
+                    <th scope="col" class="text-end">Credit Limit</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in customers %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="user-avatar-sm">{{ customer.full_name|slice:":1"|upper }}</span>
+                                <span class="fw-semibold">{{ customer.full_name }}</span>
+                            </div>
+                        </td>
+                        <td>{{ customer.phone|default:"—" }}</td>
+                        <td>{{ customer.city|default:"—" }}</td>
+                        <td class="text-end">{{ customer.credit_limit|inr }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'customers:detail' customer.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>View
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            <i class="bi bi-person-vcard fs-2 d-block mb-2"></i>
+                            No customers found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}

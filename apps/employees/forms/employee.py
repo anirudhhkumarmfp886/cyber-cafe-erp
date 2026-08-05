@@ -44,11 +44,13 @@ class EmployeeCreateForm(forms.ModelForm):
             "id_proof_type",
             "id_proof_number",
             "notes",
+            "hourly_rate",
         ]
         widgets = {
             "date_of_birth": forms.DateInput(attrs={"type": "date"}),
             "date_of_joining": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 3}),
+            "hourly_rate": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
     def clean_username(self):
@@ -89,9 +91,11 @@ class EmployeeUpdateForm(forms.ModelForm):
             "id_proof_type",
             "id_proof_number",
             "notes",
+            "hourly_rate",
         ]
         widgets = {
             "date_of_birth": forms.DateInput(attrs={"type": "date"}),
             "date_of_joining": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 3}),
+            "hourly_rate": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }

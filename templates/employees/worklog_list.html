@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>Daily Work Log</h5>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="badge text-bg-warning border fs-6">Pending: <strong>{{ pending_count }}</strong></span>
+    </div>
+</div>
+
+{% if entry_form %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>Log Hours</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                {% if entry_form.non_field_errors %}
+                    <div class="col-12">
+                        {% for error in entry_form.non_field_errors %}
+                            <div class="alert alert-danger mb-0">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="col-md-3">{% include "includes/field.html" with field=entry_form.employee %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=entry_form.work_date %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=entry_form.start_time %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=entry_form.end_time %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=entry_form.hours_worked %}</div>
+                <div class="col-md-9">{% include "includes/field.html" with field=entry_form.notes %}</div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-plus me-1"></i>Save Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h6 class="mb-0 fw-semibold">Entries</h6>
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            {% for field in filter_form %}
+                <div class="form-group mb-0">{{ field }}</div>
+            {% endfor %}
+            <button class="btn btn-sm btn-outline-primary">Filter</button>
+            <a href="{% url 'employees:worklog_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Employee</th>
+                    <th scope="col">Date</th>
+                    <th scope="col" class="text-end">Hours</th>
+                    <th scope="col">Rate</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="user-avatar-sm">{{ entry.employee.full_name|slice:":1"|upper }}</span>
+                                <div class="lh-sm">
+                                    <span class="d-block fw-semibold">{{ entry.employee.full_name }}</span>
+                                    <span class="d-block small text-muted">{{ entry.employee.employee_code }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="small text-muted">{{ entry.work_date|date:"d M Y" }}</td>
+                        <td class="text-end">{{ entry.hours_worked }}</td>
+                        <td>{{ entry.rate_applied|inr }}/hr</td>
+                        <td>
+                            <span class="badge text-bg-{% if entry.status == 'APPROVED' %}success{% elif entry.status == 'REJECTED' %}danger{% else %}warning{% endif %}">
+                                {{ entry.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            {% if entry.status == 'PENDING' and perms.employees.change_worklogentry %}
+                                <form method="post" action="{% url 'employees:worklog_action' entry.pk 'approve' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-success" title="Approve & credit salary">
+                                        <i class="bi bi-check2-circle"></i> Approve
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'employees:worklog_action' entry.pk 'reject' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-danger" title="Reject">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="small text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="bi bi-calendar-check fs-2 d-block mb-2"></i>
+                            No work log entries found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}

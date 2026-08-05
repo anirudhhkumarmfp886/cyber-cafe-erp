@@ -34,6 +34,7 @@ _EDITABLE_FIELDS = (
     "id_proof_type",
     "id_proof_number",
     "notes",
+    "hourly_rate",
 )
 
 
@@ -98,6 +99,7 @@ class EmployeeService:
             id_proof_type=data.get("id_proof_type", ""),
             id_proof_number=data.get("id_proof_number", ""),
             notes=data.get("notes", ""),
+            hourly_rate=data.get("hourly_rate") or 0,
             created_by=by,
             updated_by=by,
         )

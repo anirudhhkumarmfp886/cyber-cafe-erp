@@ -34,6 +34,8 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.employees",
     "apps.finance",
+    "apps.customers",
+    "apps.services",
     "apps.pages",
 ]
 

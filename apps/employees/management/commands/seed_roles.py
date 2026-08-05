@@ -5,16 +5,16 @@ Run once after migrations (idempotent):
 
     python manage.py seed_roles
 
-Permission matrix (Sprint 2):
+Permission matrix (Sprint 3):
 
-    Role            Employee   Wallet    Cash Book   Bank
-    ----------      ---------  --------  ----------  ------
-    Owner           full       full      full        full
-    Manager         full       full      full        full
-    Accountant      view       manage    manage      manage
-    Cashier         view       view      view        view
-    Counter Staff   view       view      view        view
-    Staff           view       view      view        view
+    Role            Employee  Wallet   CashBook  Bank     Customer  Service  WorkLog
+    ----------      --------- -------- --------  -------- --------- -------- --------
+    Owner           full      full     full      full     full      full     full
+    Manager         full      full     full      full     full      full     full
+    Accountant      view      manage   manage    manage   view      view     view
+    Cashier         view      view     view      view     view      view     view
+    Counter Staff   view      view     view      view     view      view     view
+    Staff           view      view     view      view     view      view     view
 
 "manage" = add + change + delete + view. This command is re-run safely
 whenever the matrix changes.
@@ -23,11 +23,24 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 
-from apps.employees.models import Employee, Role, Wallet, WalletTransaction
+from apps.customers.models import Customer
+from apps.employees.models import Employee, Role, Wallet, WalletTransaction, WorkLogEntry
 from apps.employees.services.role_service import ROLE_GROUP_MAP
 from apps.finance.models import BankAccount, BankTransaction, CashBookEntry
+from apps.services.models import Service, ServicePriceHistory
 
-_PERMISSION_MODELS = [Employee, Wallet, WalletTransaction, CashBookEntry, BankAccount, BankTransaction]
+_PERMISSION_MODELS = [
+    Employee,
+    Wallet,
+    WalletTransaction,
+    WorkLogEntry,
+    CashBookEntry,
+    BankAccount,
+    BankTransaction,
+    Customer,
+    Service,
+    ServicePriceHistory,
+]
 
 _READ_ONLY_PERMS = {"view"}
 
