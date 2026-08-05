@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body text-center p-4">
+                <span class="stat-icon bg-primary-subtle text-primary mb-3 d-inline-flex"><i class="bi bi-bank"></i></span>
+                <h5 class="fw-bold mb-1">{{ account.account_name }}</h5>
+                <span class="badge text-bg-secondary mb-2">{{ account.bank_name }} · {{ account.account_number }}</span>
+                <h3 class="fw-bold text-primary mt-2 mb-0">{{ balance|inr }}</h3>
+                <span class="text-muted small">Current balance (incl. opening ₹{{ account.opening_balance|floatformat:2 }})</span>
+            </div>
+        </div>
+
+        {% if deposit_form or withdrawal_form or transfer_form %}
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0 fw-semibold">Bank Actions</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-pills nav-fill small mb-3" id="bankTabs" role="tablist">
+                        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-deposit">Deposit</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-withdraw">Withdraw</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-transfer">Transfer</button></li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="tab-deposit">
+                            <form method="post" novalidate>
+                                {% csrf_token %}<input type="hidden" name="action" value="deposit">
+                                {% include "includes/field.html" with field=deposit_form.amount %}
+                                {% include "includes/field.html" with field=deposit_form.party_name %}
+                                {% include "includes/field.html" with field=deposit_form.description %}
+                                <button type="submit" class="btn btn-success w-100">Deposit</button>
+                            </form>
+                        </div>
+                        <div class="tab-pane fade" id="tab-withdraw">
+                            <form method="post" novalidate>
+                                {% csrf_token %}<input type="hidden" name="action" value="withdraw">
+                                {% include "includes/field.html" with field=withdrawal_form.amount %}
+                                {% include "includes/field.html" with field=withdrawal_form.party_name %}
+                                {% include "includes/field.html" with field=withdrawal_form.description %}
+                                <button type="submit" class="btn btn-danger w-100">Withdraw</button>
+                            </form>
+                        </div>
+                        <div class="tab-pane fade" id="tab-transfer">
+                            <form method="post" novalidate>
+                                {% csrf_token %}<input type="hidden" name="action" value="transfer">
+                                {% include "includes/field.html" with field=transfer_form.to_account %}
+                                {% include "includes/field.html" with field=transfer_form.amount %}
+                                {% include "includes/field.html" with field=transfer_form.description %}
+                                <button type="submit" class="btn btn-primary w-100">Transfer</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 fw-semibold">Statement</h6>
+                <span class="badge text-bg-light">Last 150 transactions</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Party</th>
+                            <th scope="col" class="text-end">Debit</th>
+                            <th scope="col" class="text-end">Credit</th>
+                            <th scope="col">By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for txn in transactions %}
+                            <tr>
+                                <td class="small text-muted">{{ txn.entry_date|date:"d M Y" }}</td>
+                                <td><span class="badge text-bg-{% if txn.txn_type == 'CREDIT' %}success{% else %}danger{% endif %}">{{ txn.get_category_display }}</span></td>
+                                <td>{{ txn.party_name|default:"—" }}</td>
+                                <td class="text-end text-danger fw-semibold">
+                                    {% if txn.txn_type == 'DEBIT' %}{{ txn.amount|inr }}{% endif %}
+                                </td>
+                                <td class="text-end text-success fw-semibold">
+                                    {% if txn.txn_type == 'CREDIT' %}{{ txn.amount|inr }}{% endif %}
+                                </td>
+                                <td class="small">{{ txn.created_by.get_full_name|default:"—" }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-5">No transactions yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+<aside class="app-sidebar d-flex flex-column flex-shrink-0 p-3">
+    <a href="{% url 'pages:dashboard' %}" class="sidebar-brand d-flex align-items-center mb-3 mb-md-0 me-md-auto text-decoration-none">
+        <i class="bi bi-joystick fs-4 me-2"></i>
+        <span class="fs-6 fw-bold">AK Nazar <span class="text-warning">Cyber Cafe</span></span>
+    </a>
+    <hr class="sidebar-divider">
+    <ul class="nav nav-pills flex-column mb-auto gap-1">
+        <li class="nav-item">
+            <a href="{% url 'pages:dashboard' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'pages' %}active{% endif %}"
+               aria-current="page">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{% url 'employees:list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'employees' %}active{% endif %}">
+                <i class="bi bi-people me-2"></i>Employees
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{% url 'employees:wallet_list' %}"
+               class="nav-link {% if request.resolver_match.url_name == 'wallet_list' or request.resolver_match.url_name == 'wallet_detail' %}active{% endif %}">
+                <i class="bi bi-wallet2 me-2"></i>Wallet Engine
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{% url 'finance:cashbook_list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'finance' and request.resolver_match.url_name == 'cashbook_list' %}active{% endif %}">
+                <i class="bi bi-cash-coin me-2"></i>Cash Book
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{% url 'finance:bank_list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'finance' and request.resolver_match.url_name == 'bank_list' %}active{% endif %}">
+                <i class="bi bi-bank me-2"></i>Bank Ledger
+            </a>
+        </li>
+        <li class="nav-item">
+            <span class="nav-link disabled">
+                <i class="bi bi-person-vcard me-2"></i>Customers
+                <span class="badge text-bg-warning ms-1">S3</span>
+            </span>
+        </li>
+        <li class="nav-item">
+            <span class="nav-link disabled">
+                <i class="bi bi-receipt me-2"></i>Billing
+                <span class="badge text-bg-warning ms-1">S4</span>
+            </span>
+        </li>
+        <li class="nav-item">
+            <span class="nav-link disabled">
+                <i class="bi bi-graph-up me-2"></i>Reports
+                <span class="badge text-bg-warning ms-1">S4</span>
+            </span>
+        </li>
+        <li class="nav-item">
+            <span class="nav-link disabled">
+                <i class="bi bi-boxes me-2"></i>Inventory
+                <span class="badge text-bg-warning ms-1">S5</span>
+            </span>
+        </li>
+    </ul>
+    <hr class="sidebar-divider">
+    <div class="dropdown">
+        <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-white" data-bs-toggle="dropdown">
+            <i class="bi bi-shield-lock me-2"></i>
+            <span class="small">Admin Panel</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-dark">
+            <li><a class="dropdown-item" href="{% url 'admin:index' %}">Django Admin</a></li>
+        </ul>
+    </div>
+</aside>

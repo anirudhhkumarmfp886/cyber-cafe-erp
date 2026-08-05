@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-9">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 fw-semibold">
+                    {% if form.username %}<i class="bi bi-person-plus me-1"></i>{% else %}<i class="bi bi-pencil me-1"></i>{% endif %}
+                    {{ page_title }}
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger py-2 small">
+                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                    </div>
+                {% endif %}
+
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+
+                    {% if form.username %}
+                        <h6 class="text-uppercase small text-muted fw-semibold mb-3">Login Credentials</h6>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">{% include "includes/field.html" with field=form.username %}</div>
+                            <div class="col-md-4">{% include "includes/field.html" with field=form.password %}</div>
+                            <div class="col-md-4">{% include "includes/field.html" with field=form.confirm_password %}</div>
+                        </div>
+                    {% endif %}
+
+                    <h6 class="text-uppercase small text-muted fw-semibold mb-3">Employment</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">{% include "includes/field.html" with field=form.full_name %}</div>
+                        <div class="col-md-3">{% include "includes/field.html" with field=form.role %}</div>
+                        <div class="col-md-3">{% include "includes/field.html" with field=form.status %}</div>
+                        <div class="col-md-4">{% include "includes/field.html" with field=form.date_of_joining %}</div>
+                        <div class="col-md-4">{% include "includes/field.html" with field=form.date_of_birth %}</div>
+                        <div class="col-md-4">{% include "includes/field.html" with field=form.gender %}</div>
+                    </div>
+
+                    <h6 class="text-uppercase small text-muted fw-semibold mb-3">Contact</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">{% include "includes/field.html" with field=form.personal_phone %}</div>
+                        <div class="col-md-6">{% include "includes/field.html" with field=form.personal_email %}</div>
+                        <div class="col-md-6">{% include "includes/field.html" with field=form.emergency_contact_name %}</div>
+                        <div class="col-md-6">{% include "includes/field.html" with field=form.emergency_contact_phone %}</div>
+                    </div>
+
+                    <h6 class="text-uppercase small text-muted fw-semibold mb-3">Address</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">{% include "includes/field.html" with field=form.address_line %}</div>
+                        <div class="col-md-4">{% include "includes/field.html" with field=form.city %}</div>
+                        <div class="col-md-4">{% include "includes/field.html" with field=form.state %}</div>
+                        <div class="col-md-4">{% include "includes/field.html" with field=form.pincode %}</div>
+                    </div>
+
+                    <h6 class="text-uppercase small text-muted fw-semibold mb-3">Identity &amp; Notes</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">{% include "includes/field.html" with field=form.id_proof_type %}</div>
+                        <div class="col-md-8">{% include "includes/field.html" with field=form.id_proof_number %}</div>
+                        <div class="col-md-12">{% include "includes/field.html" with field=form.notes %}</div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary px-4">
+                            {% if form.username %}<i class="bi bi-check-lg me-1"></i>Create Employee{% else %}<i class="bi bi-check-lg me-1"></i>Save Changes{% endif %}
+                        </button>
+                        <a href="{% url 'employees:list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

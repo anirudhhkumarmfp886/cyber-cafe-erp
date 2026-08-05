@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <span class="user-avatar-large">
+                        {{ request.user.get_short_name|slice:":1"|upper }}
+                    </span>
+                    <div>
+                        <h5 class="mb-0 fw-bold">{{ request.user.get_full_name }}</h5>
+                        <span class="text-muted small">@{{ request.user.username }}</span>
+                    </div>
+                </div>
+
+                <h6 class="fw-semibold text-uppercase small text-muted mb-3">Account Details</h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <span class="text-muted small d-block">Username</span>
+                        <span class="fw-semibold">{{ request.user.username }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="text-muted small d-block">Email</span>
+                        <span>{{ request.user.email|default:"—" }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="text-muted small d-block">Phone</span>
+                        <span>{{ request.user.phone|default:"—" }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="text-muted small d-block">Joined</span>
+                        <span>{{ request.user.date_joined|date:"d M Y" }}</span>
+                    </div>
+                </div>
+
+                {% if employee %}
+                    <hr>
+                    <h6 class="fw-semibold text-uppercase small text-muted mb-3">Employee Profile</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <span class="text-muted small d-block">Employee Code</span>
+                            <span class="fw-semibold">{{ employee.employee_code }}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <span class="text-muted small d-block">Role</span>
+                            <span>{{ employee.get_role_display }}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <span class="text-muted small d-block">Status</span>
+                            <span class="badge {% if employee.is_active %}text-bg-success{% else %}text-bg-danger{% endif %}">
+                                {{ employee.get_status_display }}
+                            </span>
+                        </div>
+                        <div class="col-md-6">
+                            <span class="text-muted small d-block">Joined On</span>
+                            <span>{{ employee.date_of_joining|date:"d M Y"|default:"—" }}</span>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

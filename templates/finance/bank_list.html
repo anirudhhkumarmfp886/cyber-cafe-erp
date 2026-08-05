@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-bank me-2 text-primary"></i>Bank Ledger</h5>
+    <div class="alert alert-info py-2 px-3 mb-0">
+        <strong>Total across accounts: {{ total_balance|inr }}</strong>
+    </div>
+</div>
+
+{% if account_form %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Bank Account</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                {% if account_form.non_field_errors %}
+                    <div class="col-12">
+                        {% for error in account_form.non_field_errors %}
+                            <div class="alert alert-danger mb-0">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="col-md-3">{% include "includes/field.html" with field=account_form.account_name %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=account_form.bank_name %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=account_form.account_number %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=account_form.account_type %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=account_form.ifsc_code %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=account_form.branch %}</div>
+                <div class="col-md-3">{% include "includes/field.html" with field=account_form.opening_balance %}</div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-bank me-1"></i>Create Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Account</th>
+                    <th scope="col">Bank</th>
+                    <th scope="col">A/C No</th>
+                    <th scope="col">Type</th>
+                    <th scope="col" class="text-end">Balance</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for account in accounts %}
+                    <tr>
+                        <td class="fw-semibold">{{ account.account_name }}</td>
+                        <td>{{ account.bank_name }}</td>
+                        <td class="small text-muted">{{ account.account_number }}</td>
+                        <td><span class="badge text-bg-light border">{{ account.get_account_type_display }}</span></td>
+                        <td class="text-end fw-semibold {% if account.balance < 0 %}text-danger{% endif %}">{{ account.balance|inr }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'finance:bank_detail' account.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-receipt me-1"></i>Ledger
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="bi bi-bank fs-2 d-block mb-2"></i>
+                            No bank accounts yet. Add your first account above.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}

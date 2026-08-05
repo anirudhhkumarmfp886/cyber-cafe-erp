@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-cash-coin me-2 text-success"></i>Cash Book</h5>
+    <div class="d-flex flex-wrap gap-2">
+        <span class="badge text-bg-light border fs-6">In: <strong class="text-success">{{ income_total|inr }}</strong></span>
+        <span class="badge text-bg-light border fs-6">Out: <strong class="text-danger">{{ expense_total|inr }}</strong></span>
+        <span class="badge text-bg-light border fs-6">Balance: <strong class="text-primary">{{ balance|inr }}</strong></span>
+    </div>
+</div>
+
+{% if entry_form %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i>Record Entry</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                {% if entry_form.non_field_errors %}
+                    <div class="col-12">
+                        {% for error in entry_form.non_field_errors %}
+                            <div class="alert alert-danger mb-0">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.entry_type %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.amount %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.category %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.payment_mode %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.entry_date %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.party_name %}</div>
+                <div class="col-12">{% include "includes/field.html" with field=entry_form.description %}</div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check2-circle me-1"></i>Save Entry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h6 class="mb-0 fw-semibold">Entries</h6>
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            {% for field in filter_form %}
+                <div class="form-group mb-0">{{ field }}</div>
+            {% endfor %}
+            <button class="btn btn-sm btn-outline-primary">Filter</button>
+            <a href="{% url 'finance:cashbook_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Ref #</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Mode</th>
+                    <th scope="col">Party</th>
+                    <th scope="col" class="text-end">Amount</th>
+                    <th scope="col">By</th>
+                    {% if perms.finance.delete_cashbookentry %}<th scope="col"></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                    <tr>
+                        <td><span class="badge text-bg-secondary">{{ entry.reference_number }}</span></td>
+                        <td class="small text-muted">{{ entry.entry_date|date:"d M Y" }}</td>
+                        <td>
+                            <span class="badge text-bg-{% if entry.entry_type == 'INCOME' %}success{% else %}danger{% endif %}">
+                                {{ entry.get_entry_type_display }}
+                            </span>
+                        </td>
+                        <td>{{ entry.get_category_display }}</td>
+                        <td><span class="badge text-bg-light border">{{ entry.get_payment_mode_display }}</span></td>
+                        <td>{{ entry.party_name|default:"—" }}</td>
+                        <td class="text-end fw-semibold {% if entry.entry_type == 'INCOME' %}text-success{% else %}text-danger{% endif %}">
+                            {% if entry.entry_type == 'INCOME' %}+{% else %}−{% endif %}{{ entry.amount|inr }}
+                        </td>
+                        <td class="small">{{ entry.created_by.get_full_name|default:"—" }}</td>
+                        {% if perms.finance.delete_cashbookentry %}
+                            <td class="text-end">
+                                <form method="post" action="{% url 'finance:cashbook_delete' entry.pk %}" onsubmit="return confirm('Delete entry {{ entry.reference_number }}?')">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            <i class="bi bi-cash-coin fs-2 d-block mb-2"></i>
+                            No entries found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}

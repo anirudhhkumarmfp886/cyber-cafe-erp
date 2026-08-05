@@ -1,0 +1,37 @@
+<nav class="app-topbar d-flex align-items-center justify-content-between px-4">
+    <h5 class="mb-0 text-white fw-semibold">
+        <i class="bi bi-grid-3x3-gap me-2"></i>{{ page_title|default:"Dashboard" }}
+    </h5>
+    <div class="d-flex align-items-center gap-3">
+        <div class="dropdown">
+            <button class="btn btn-user dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                <span class="user-avatar d-inline-flex align-items-center justify-content-center">
+                    {{ request.user.get_short_name|slice:":1"|upper }}
+                </span>
+                <span class="d-none d-md-inline text-start lh-sm">
+                    <span class="d-block small fw-semibold text-white">{{ request.user.get_full_name }}</span>
+                    <span class="d-block small text-white-50">
+                        {% if request.user.employee %}{{ request.user.employee.get_role_display }}{% else %}Administrator{% endif %}
+                    </span>
+                </span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                    <i class="bi bi-person me-2"></i>My Profile</a>
+                </li>
+                <li><a class="dropdown-item" href="{% url 'admin:index' %}">
+                    <i class="bi bi-gear me-2"></i>Admin Panel</a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form method="post" action="{% url 'accounts:logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="dropdown-item">
+                            <i class="bi bi-box-arrow-right me-2"></i>Logout
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

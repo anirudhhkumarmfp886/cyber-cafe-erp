@@ -1,0 +1,12 @@
+# AK NAZAR CYBER CAFE ERP - Python dependencies
+# Production-grade dependency pins. Upgrade deliberately, never blindly.
+
+Django==5.2.13
+python-dotenv==1.0.1
+Pillow==10.4.0
+whitenoise==6.7.0
+psycopg[binary]==3.2.3
+gunicorn==23.0.0
+
+# Development / quality tooling
+ruff==0.5.7

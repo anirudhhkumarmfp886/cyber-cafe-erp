@@ -1,0 +1,30 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{{ page_title|default:"Dashboard" }} · {{ ERP_APP_NAME }}{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{% static 'css/site.css' %}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="app-wrapper d-flex">
+    {% include "includes/sidebar.html" %}
+    <div class="app-main flex-grow-1 d-flex flex-column">
+        {% include "includes/topbar.html" %}
+        <main class="app-content container-fluid py-4">
+            {% include "includes/messages.html" %}
+            {% block content %}{% endblock %}
+        </main>
+        <footer class="app-footer mt-auto text-center small text-muted py-3">
+            © {% now "Y" %} {{ ERP_COMPANY_NAME }} · {{ ERP_APP_NAME }} v{{ ERP_APP_VERSION }}
+        </footer>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

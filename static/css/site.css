@@ -1,0 +1,235 @@
+/* ============================================================
+   AK NAZAR CYBER CAFE ERP - global stylesheet
+   Bootstrap 5.3 provides the component layer; this file only
+   adds the ERP shell (sidebar/topbar), typography and accents.
+   ============================================================ */
+
+:root {
+    --erp-sidebar-bg: #111827;
+    --erp-sidebar-hover: #1f2937;
+    --erp-sidebar-active: #2563eb;
+    --erp-topbar-bg: #1e293b;
+    --erp-accent: #2563eb;
+    --erp-accent-warm: #f59e0b;
+    --erp-content-bg: #f4f6fb;
+}
+
+body {
+    background: var(--erp-content-bg);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+}
+
+/* ---------- App shell ---------- */
+.app-wrapper {
+    min-height: 100vh;
+}
+
+.app-sidebar {
+    width: 260px;
+    background: var(--erp-sidebar-bg);
+    color: #cbd5e1;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar-brand {
+    color: #fff;
+}
+
+.sidebar-divider {
+    border-color: rgba(255, 255, 255, 0.08);
+    width: 100%;
+}
+
+.app-sidebar .nav-link {
+    color: #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.9rem;
+}
+
+.app-sidebar .nav-link:hover {
+    background: var(--erp-sidebar-hover);
+    color: #fff;
+}
+
+.app-sidebar .nav-link.active {
+    background: var(--erp-sidebar-active);
+    color: #fff;
+}
+
+.app-sidebar .nav-link.disabled {
+    color: #64748b;
+    opacity: 1;
+    cursor: not-allowed;
+}
+
+.app-main {
+    min-width: 0;
+}
+
+.app-topbar {
+    background: var(--erp-topbar-bg);
+    min-height: 64px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.btn-user {
+    background: transparent;
+    border: none;
+    padding: 0.25rem 0.5rem;
+}
+
+.btn-user:hover,
+.btn-user:focus {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.app-content {
+    flex: 1;
+}
+
+/* ---------- Avatars ---------- */
+.user-avatar,
+.user-avatar-sm,
+.user-avatar-lg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--erp-accent);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 0.85rem;
+}
+
+.user-avatar-sm {
+    width: 34px;
+    height: 34px;
+    font-size: 0.8rem;
+}
+
+.user-avatar-lg {
+    width: 72px;
+    height: 72px;
+    font-size: 1.6rem;
+}
+
+.user-avatar-large {
+    width: 56px;
+    height: 56px;
+    font-size: 1.3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--erp-accent);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 50%;
+}
+
+/* ---------- Cards & stats ---------- */
+.welcome-card {
+    background: linear-gradient(120deg, #1e293b 0%, #2563eb 100%);
+    color: #fff;
+}
+
+.stat-card {
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+}
+
+.btn-soft {
+    background: #eef2ff;
+    color: #1d4ed8;
+    border: 1px solid transparent;
+}
+
+.btn-soft:hover {
+    background: #e0e7ff;
+    color: #1e3a8a;
+}
+
+/* ---------- Forms ---------- */
+.form-control,
+.form-select {
+    border-radius: 0.5rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--erp-accent);
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.15);
+}
+
+/* ---------- Tables ---------- */
+.table thead th {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* ---------- Authentication page ---------- */
+.auth-page {
+    background: linear-gradient(135deg, #111827 0%, #1e3a8a 100%);
+    min-height: 100vh;
+}
+
+.auth-wrapper {
+    min-height: 100vh;
+    padding: 1.5rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    border-radius: 1rem;
+}
+
+.auth-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+}
+
+/* ---------- Footer ---------- */
+.app-footer {
+    border-top: 1px solid #e5e7eb;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 991.98px) {
+    .app-sidebar {
+        position: fixed;
+        z-index: 1040;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        width: 240px;
+    }
+}

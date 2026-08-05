@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12">
+        <div class="welcome-card p-4 rounded-4 d-flex flex-wrap align-items-center justify-content-between">
+            <div>
+                <h4 class="fw-bold mb-1">Welcome back, {{ request.user.get_full_name }}</h4>
+                <p class="mb-0 text-white-50">Today is {% now "l, d F Y" %}. Here is your ERP at a glance.</p>
+            </div>
+            <i class="bi bi-controller display-4 text-warning"></i>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-people"></i></span>
+                <div>
+                    <h3 class="mb-0 fw-bold">{{ stats.total_employees }}</h3>
+                    <span class="text-muted small">Total Employees</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="stat-icon bg-success-subtle text-success"><i class="bi bi-person-check"></i></span>
+                <div>
+                    <h3 class="mb-0 fw-bold">{{ stats.active_employees }}</h3>
+                    <span class="text-muted small">Active Staff</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="stat-icon bg-info-subtle text-info"><i class="bi bi-person-badge"></i></span>
+                <div>
+                    <h3 class="mb-0 fw-bold">{{ stats.total_users }}</h3>
+                    <span class="text-muted small">Login Accounts</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="stat-icon bg-warning-subtle text-warning"><i class="bi bi-coin"></i></span>
+                <div>
+                    <h3 class="mb-0 fw-bold">{{ finance.today_income|inr }}</h3>
+                    <span class="text-muted small">Today's Income</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-wallet2"></i></span>
+                <div>
+                    <h3 class="mb-0 fw-bold">{{ finance.wallet_balance|inr }}</h3>
+                    <span class="text-muted small">Total Staff Wallets</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="stat-icon bg-success-subtle text-success"><i class="bi bi-cash-stack"></i></span>
+                <div>
+                    <h3 class="mb-0 fw-bold">{{ finance.cashbook_balance|inr }}</h3>
+                    <span class="text-muted small">Cash Book Balance</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="stat-icon bg-info-subtle text-info"><i class="bi bi-bank"></i></span>
+                <div>
+                    <h3 class="mb-0 fw-bold">{{ finance.bank_balance|inr }}</h3>
+                    <span class="text-muted small">Bank Total</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <span class="stat-icon bg-danger-subtle text-danger"><i class="bi bi-shield-check"></i></span>
+                <div>
+                    <h3 class="mb-0 fw-bold">Audit</h3>
+                    <span class="text-muted small">Every ₹ is traceable</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 fw-semibold">Quick Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-4">
+                        <a href="{% url 'employees:create' %}" class="btn btn-soft w-100 py-3 d-flex flex-column align-items-center gap-2">
+                            <i class="bi bi-person-plus fs-3"></i>
+                            <span>Add Employee</span>
+                        </a>
+                    </div>
+                    <div class="col-sm-4">
+                        <a href="{% url 'employees:list' %}" class="btn btn-soft w-100 py-3 d-flex flex-column align-items-center gap-2">
+                            <i class="bi bi-people fs-3"></i>
+                            <span>View Staff</span>
+                        </a>
+                    </div>
+                    <div class="col-sm-4">
+                        <button class="btn btn-soft w-100 py-3 d-flex flex-column align-items-center gap-2" disabled>
+                            <i class="bi bi-receipt fs-3"></i>
+                            <span>New Bill (S4)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Sprint Roadmap</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush small">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-check-circle-fill text-success me-2"></i>Sprint 1 · Foundation</span>
+                        <span class="badge text-bg-success">Done</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-check-circle-fill text-success me-2"></i>Sprint 2 · Wallet, Cash Book, Bank</span>
+                        <span class="badge text-bg-success">Done</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-person-vcard me-2"></i>Sprint 3 · Customers &amp; Services</span>
+                        <span class="badge text-bg-secondary">Next</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-receipt me-2"></i>Sprint 4 · Billing &amp; Reports</span>
+                        <span class="badge text-bg-secondary">Planned</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
