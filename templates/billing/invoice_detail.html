@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i>{{ invoice.invoice_number }}</h5>
+    <div class="d-flex gap-2">
+        <a href="{% url 'billing:list' %}" class="btn btn-sm btn-outline-secondary">Back to Billing</a>
+        {% if invoice.status != "PAID" and perms.billing.delete_invoice %}
+        <form method="post" action="{% url 'billing:delete' invoice.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger"
+                    onclick="return confirm('Void this invoice? Linked cash book entries will also be reversed.')">
+                <i class="bi bi-x-circle me-1"></i>Void
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Bill Details</h6>
+            </div>
+            <div class="card-body">
+                <div class="row small text-muted mb-3">
+                    <div class="col-md-3">Customer</div>
+                    <div class="col-md-9 fw-semibold text-dark">{{ invoice.customer.full_name|default:"Walk-in Customer" }}</div>
+                    <div class="col-md-3">Date</div>
+                    <div class="col-md-9 fw-semibold text-dark">{{ invoice.billed_on|date:"l, d F Y" }}</div>
+                    <div class="col-md-3">Payment Mode</div>
+                    <div class="col-md-9 fw-semibold text-dark">{{ invoice.get_payment_mode_display }}</div>
+                    {% if invoice.notes %}<div class="col-md-3">Notes</div><div class="col-md-9 text-dark">{{ invoice.notes }}</div>{% endif %}
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Item</th>
+                                <th scope="col" class="text-center">Qty</th>
+                                <th scope="col" class="text-end">Rate</th>
+                                <th scope="col" class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for line in lines %}
+                                <tr>
+                                    <td>{{ line.description }}</td>
+                                    <td class="text-center">{{ line.qty }}</td>
+                                    <td class="text-end">{{ line.unit_price|inr }}</td>
+                                    <td class="text-end fw-semibold">{{ line.amount|inr }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="3" class="text-end">Subtotal</td>
+                                <td class="text-end">{{ invoice.subtotal|inr }}</td>
+                            </tr>
+                            {% if invoice.discount > 0 %}
+                            <tr>
+                                <td colspan="3" class="text-end">Discount</td>
+                                <td class="text-end text-danger">-{{ invoice.discount|inr }}</td>
+                            </tr>
+                            {% endif %}
+                            <tr class="fw-bold">
+                                <td colspan="3" class="text-end">Total</td>
+                                <td class="text-end">{{ invoice.total|inr }}</td>
+                            </tr>
+                            <tr class="{% if invoice.outstanding_amount > 0 %}text-danger{% endif %}">
+                                <td colspan="3" class="text-end">Outstanding</td>
+                                <td class="text-end">{{ invoice.outstanding_amount|inr }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {% if payments %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Payment History</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Mode</th>
+                            <th scope="col" class="text-end">Amount</th>
+                            <th scope="col">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr>
+                                <td>{{ payment.payment_date|date:"d M Y" }}</td>
+                                <td>{{ payment.get_payment_mode_display }}</td>
+                                <td class="text-end fw-semibold">{{ payment.amount|inr }}</td>
+                                <td class="small text-muted">{{ payment.notes|default:"—" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        {% if invoice.status != "PAID" and settle_form %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Record Payment</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'billing:settle' invoice.pk %}">
+                    {% csrf_token %}
+                    {% for field in settle_form %}
+                        {% include "includes/field.html" with field=field %}
+                    {% endfor %}
+                    <button type="submit" class="btn btn-success w-100"><i class="bi bi-cash-coin me-1"></i>Settle</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Summary</h6>
+            </div>
+            <ul class="list-group list-group-flush small">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Status</span>
+                    <span class="fw-semibold">{{ invoice.get_status_display }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Billed By</span>
+                    <span>{{ invoice.created_by.get_full_name|default:invoice.created_by.username }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Paid</span>
+                    <span class="fw-semibold text-success">{{ invoice.paid_amount|inr }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Outstanding</span>
+                    <span class="fw-semibold {% if invoice.outstanding_amount > 0 %}text-danger{% endif %}">{{ invoice.outstanding_amount|inr }}</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

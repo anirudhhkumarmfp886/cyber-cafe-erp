@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h5 class="mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>Reports &amp; Analytics</h5>
+</div>
+
+<div class="row g-4">
+    <div class="col-sm-6 col-xl-4">
+        <a href="{% url 'reports:profit_loss' %}" class="text-decoration-none">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="stat-icon bg-success-subtle text-success"><i class="bi bi-bar-chart"></i></span>
+                    <div>
+                        <h6 class="mb-1 fw-bold">Profit &amp; Loss</h6>
+                        <span class="text-muted small">Income vs expenses by category</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a href="{% url 'reports:bank_statement' %}" class="text-decoration-none">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-bank"></i></span>
+                    <div>
+                        <h6 class="mb-1 fw-bold">Bank Statement</h6>
+                        <span class="text-muted small">Per-account ledger with balance</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a href="{% url 'reports:customer_ledger' %}" class="text-decoration-none">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="stat-icon bg-info-subtle text-info"><i class="bi bi-person-vcard"></i></span>
+                    <div>
+                        <h6 class="mb-1 fw-bold">Customer Ledger</h6>
+                        <span class="text-muted small">Billed, paid, outstanding</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a href="{% url 'reports:wallet_statement' %}" class="text-decoration-none">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="stat-icon bg-warning-subtle text-warning"><i class="bi bi-wallet2"></i></span>
+                    <div>
+                        <h6 class="mb-1 fw-bold">Wallet Statement</h6>
+                        <span class="text-muted small">Per-employee wallet ledger</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a href="{% url 'reports:salary_summary' %}" class="text-decoration-none">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="stat-icon bg-danger-subtle text-danger"><i class="bi bi-currency-rupee"></i></span>
+                    <div>
+                        <h6 class="mb-1 fw-bold">Salary Summary</h6>
+                        <span class="text-muted small">Approved work-log wages</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a href="{% url 'reports:analytics' %}" class="text-decoration-none">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-graph-up-arrow"></i></span>
+                    <div>
+                        <h6 class="mb-1 fw-bold">Analytics</h6>
+                        <span class="text-muted small">Peak hours, top services, sales</span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

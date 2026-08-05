@@ -28,9 +28,37 @@ selectors, views stay thin.
 | 1 | Foundation, Auth, Roles, Permissions, Employees, Base Layout | Done |
 | 2 | Wallet Engine, Cash Book, Bank Ledger | Done |
 | 3 | Customers, Services, Daily Work Log | **Done** (committed) |
-| 4 | Billing, Dashboard, Reports, Analytics | **Next** |
+| 4 | Billing, Dashboard, Reports, Analytics | **Done** (this session) |
+| 5 | Inventory | Next |
 
 Tests: full suite passes. Ruff lint clean. All migrations applied.
+
+### Sprint 4 deliverables (built this session)
+1. **Billing** (`apps/billing/`) — `Invoice`, `InvoiceLine` (service, qty,
+   snapshot price), `InvoicePayment` (partial/full settlements),
+   `CashOut` (E-Sathi). `BillingService.create_invoice` mints `INV-xxxxxx`,
+   validates credit limit, auto-books Cash Book income for non-credit
+   payments; `settle_invoice` (partial/full → UNPAID/PARTIAL/PAID) and
+   `soft_delete_invoice` (voids linked Cash Book entries) complete the API.
+   `CashOutService.create_cash_out` atomically books bank deposit
+   (`PAYMENT_RECEIVED`), COMMISSION income and CASH_OUT expense.
+2. **Reference prefixes** — `ReferenceService` now mints `INV` (invoice)
+   and `COUT` (cash-out) references.
+3. **Cash categories** — `apps/finance/models/enums.py` gained
+   `COMMISSION` (income) + `CASH_OUT` (expense); migration `finance.0002`.
+4. **Reports** (`apps/reports/`) — date-range P&L, bank statement
+   (opening/closing balance), customer ledger, wallet statement, salary
+   summary (approved work-log wages), analytics (today/billing totals,
+   payment-mode split, top services, recent cash-outs, per-status invoice
+   counts). Every report has a CSV download button.
+5. **Dashboard upgrades** — today's billing, pending invoices, outstanding
+   receivables, top services cards + New Bill / Cash Out quick actions.
+6. **Roles** — `seed_roles` matrix extended (Owner/Manager full;
+   Accountant manages finance + billing; Cashier/Counter Staff create
+   billing; Staff view-only).
+7. Wired: `INSTALLED_APPS`, root URLs (`/billing/`, `/reports/`), sidebar
+   (Billing, Reports enabled), migrations `billing.0001` applied. New-app
+   test run green (40 tests) before full-suite re-run.
 
 ### Sprint 3 deliverables (built last session)
 1. **Customers** (`apps/customers/`) — profiles only (decision: wallets stay
@@ -72,7 +100,8 @@ Tests: full suite passes. Ruff lint clean. All migrations applied.
 - **Triple validation:** model + form + service.
 - **Reference numbers:** minted via
   `apps.common.services.reference_service.ReferenceService` —
-  `WAL-xxxxxx` (wallet), `CB-xxxxxx` (cash book), `BANK-xxxxxx` (bank).
+  `WAL-xxxxxx` (wallet), `CB-xxxxxx` (cash book), `BANK-xxxxxx` (bank),
+  `INV-xxxxxx` (invoice), `COUT-xxxxxx` (cash-out).
   Non-financial records (customers, services) don't need references.
 - **Money:** `Decimal`, `MONEY_MAX_DIGITS=18`, `MONEY_DECIMAL_PLACES=2`
   in `config/settings/base.py` via the `money_field()` helper. Use the
@@ -96,6 +125,8 @@ Tests: full suite passes. Ruff lint clean. All migrations applied.
 | Finance | `apps.finance` | `CashBookEntry`, `BankAccount`, `BankTransaction` | `/finance/cashbook/`, `/finance/bank/` |
 | Customers | `apps.customers` | `Customer` | `/customers/` |
 | Services | `apps.services` | `Service`, `ServicePriceHistory` | `/services/` |
+| Billing | `apps.billing` | `Invoice`, `InvoiceLine`, `InvoicePayment`, `CashOut` | `/billing/`, `/billing/cashout/` |
+| Reports | `apps.reports` | (service layer, no models) | `/reports/` + CSV |
 | Pages | `apps.pages` | Dashboard | `/` |
 
 Wallet service API (`apps/employees/services/wallet_service.py`):
@@ -114,6 +145,17 @@ deactivate_customer/restore_customer`.
 Service catalog: `ServiceService.create_service/update_service/
 deactivate_service/restore_service` (price changes append history).
 
+Billing API (`apps/billing/services/billing_service.py`):
+`BillingService.create_invoice/settle_invoice/soft_delete_invoice`;
+`CashOutService.create_cash_out` (bank deposit + COMMISSION income +
+CASH_OUT expense atomically). Invoice totals are always derived from
+lines; credit is enforced against `Customer.credit_limit` via
+`InvoiceSelector.outstanding_for_customer`.
+
+Report API (`apps/reports/services/report_service.py`): `profit_loss`,
+`bank_statement`, `customer_ledger`, `wallet_statement`, `salary_summary`,
+`analytics`, `csv_response`.
+
 ---
 
 ## 5. Known technical debt / deferred items
@@ -123,32 +165,30 @@ deactivate_service/restore_service` (price changes append history).
 - `db.sqlite3` is committed in the repo. For production switch to
   PostgreSQL (settings `config.settings.production`).
 - Wallet / bank balances are derived by SUM over all transactions; large
-  ledgers may need indexed range queries or caching in Sprint 4 reporting.
-- Customers have no wallet / receivable ledger yet (decision in Sprint 3).
-  Sprint 4 billing must model customer invoices and how they settle
-  (cash / UPI / against credit limit) — reconcile against Cash Book.
+  ledgers may need indexed range queries or caching as data grows.
+- Cash-out (`CashOut`) soft delete intentionally leaves ledger entries
+  behind (voiding money movement is irreversible and recorded as debt).
+  Void is not offered for cash-outs in the UI.
 - Daily Work Log: no duplicate-shift guard per employee+day (multiple
   entries allowed); wage is snapshot-based, no attendance clocking.
+- Printing/colour/online-form-fill billing is catalog `Service` line
+  items — no dedicated billing code, by design.
 
 ---
 
-## 6. Next steps (Sprint 4 — Billing, Dashboard, Reports, Analytics)
+## 6. Next steps (Sprint 5 — Inventory)
 
 Planned scope:
-1. **Billing** (`apps/billing/`): customer sessions/invoices, bill lines
-   (service x qty x price, using `ServicePriceHistory`), payment modes,
-   settlement against cash book / credit limit, invoice reference numbers
-   (`INV-xxxxxx`), soft delete. Money rules: totals derived from lines.
-2. **Dashboard upgrades**: today's sales, top services, pending invoices,
-   staff wallet liabilities vs cash book.
-3. **Reports** (`apps/reports/` or in finance): date-range P&L summary,
-   bank statement export, customer ledger, wallet statement, work-log
-   salary summary. CSV export for each.
-4. **Analytics**: peak hours, service popularity, per-employee sales.
+1. **Inventory** (`apps/inventory/`): stock items/consumables, units,
+   stock-in / stock-out (issue to cafe terminals), low-stock alerts,
+   stock valuation, reconciliation against usage.
+2. **Purchase ledger** if needed (supplier + purchases vs cash book).
+3. Possible hardening: performance indexes on ledger tables, dashboard
+   caching, invoice printing (A4/POS) template.
 
-Recommended order: Billing models/services → billing views/forms/templates →
-dashboard stats → reports/CSV → seed_roles matrix + tests, then full
-`ruff check` + test run before committing.
+Recommended order: models → services/selectors → views/forms/templates →
+seed_roles matrix + tests, then full `ruff check` + test run before
+committing.
 
 ---
 

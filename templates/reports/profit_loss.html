@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Profit &amp; Loss</h5>
+    <div class="d-flex gap-2 align-items-center">
+        <a href="{% url 'reports:profit_loss' %}?export=csv&{{ request.GET.urlencode }}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-download me-1"></i>CSV
+        </a>
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            {% for field in form %}
+                <div class="form-group mb-0">{{ field }}</div>
+            {% endfor %}
+            <button class="btn btn-sm btn-outline-primary">Run</button>
+            <a href="{% url 'reports:profit_loss' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Income — {{ from_date|date:"d M Y" }} to {{ to_date|date:"d M Y" }}</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th scope="col">Category</th><th scope="col" class="text-end">Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data.income %}
+                            <tr>
+                                <td>{{ row.category }}</td>
+                                <td class="text-end fw-semibold text-success">{{ row.total|inr }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted py-4">No income in this period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td>Total Income</td>
+                            <td class="text-end">{{ data.income_total|inr }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Expenses</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th scope="col">Category</th><th scope="col" class="text-end">Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data.expense %}
+                            <tr>
+                                <td>{{ row.category }}</td>
+                                <td class="text-end text-danger">{{ row.total|inr }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted py-4">No expenses in this period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td>Total Expenses</td>
+                            <td class="text-end">{{ data.expense_total|inr }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted small text-uppercase">Customer cash-outs (principal, non-P&amp;L)</h6>
+                <h4 class="mb-0 fw-bold text-secondary">{{ data.cash_out_total|inr }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted small text-uppercase">Net Profit</h6>
+                <h4 class="mb-0 fw-bold {% if data.net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ data.net|inr }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="fw-semibold text-muted small text-uppercase">Margin</h6>
+                <h4 class="mb-0 fw-bold">{% if data.margin is not None %}{{ data.margin|floatformat:2 }}%{% else %}—{% endif %}</h4>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

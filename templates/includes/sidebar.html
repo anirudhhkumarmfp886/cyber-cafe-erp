@@ -55,16 +55,16 @@
             </a>
         </li>
         <li class="nav-item">
-            <span class="nav-link disabled">
+            <a href="{% url 'billing:list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'billing' %}active{% endif %}">
                 <i class="bi bi-receipt me-2"></i>Billing
-                <span class="badge text-bg-warning ms-1">S4</span>
-            </span>
+            </a>
         </li>
         <li class="nav-item">
-            <span class="nav-link disabled">
+            <a href="{% url 'reports:index' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}">
                 <i class="bi bi-graph-up me-2"></i>Reports
-                <span class="badge text-bg-warning ms-1">S4</span>
-            </span>
+            </a>
         </li>
         <li class="nav-item">
             <span class="nav-link disabled">

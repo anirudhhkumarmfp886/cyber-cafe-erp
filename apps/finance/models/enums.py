@@ -18,6 +18,7 @@ class CashEntryCategory(models.TextChoices):
     # Income categories
     SALES = "SALES", "Sales"
     SERVICE_FEE = "SERVICE_FEE", "Service Fee"
+    COMMISSION = "COMMISSION", "Commission / E-Sathi"
     OTHER_INCOME = "OTHER_INCOME", "Other Income"
     # Expense categories
     PURCHASE = "PURCHASE", "Purchases"
@@ -28,12 +29,14 @@ class CashEntryCategory(models.TextChoices):
     MAINTENANCE = "MAINTENANCE", "Maintenance"
     UTILITIES = "UTILITIES", "Utilities"
     TAX = "TAX", "Tax"
+    CASH_OUT = "CASH_OUT", "Cash Out / E-Sathi"
     MISC = "MISC", "Miscellaneous"
 
 
 INCOME_CATEGORIES = {
     CashEntryCategory.SALES,
     CashEntryCategory.SERVICE_FEE,
+    CashEntryCategory.COMMISSION,
     CashEntryCategory.OTHER_INCOME,
 }
 
@@ -46,6 +49,7 @@ EXPENSE_CATEGORIES = {
     CashEntryCategory.MAINTENANCE,
     CashEntryCategory.UTILITIES,
     CashEntryCategory.TAX,
+    CashEntryCategory.CASH_OUT,
     CashEntryCategory.MISC,
 }
 

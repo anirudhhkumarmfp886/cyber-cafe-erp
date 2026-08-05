@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-graph-up-arrow me-2 text-primary"></i>Analytics</h5>
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+        {% for field in form %}
+            <div class="form-group mb-0">{{ field }}</div>
+        {% endfor %}
+        <button class="btn btn-sm btn-outline-primary">Run</button>
+        <a href="{% url 'reports:analytics' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+    </form>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Peak Hours ({{ from_date|date:"d M Y" }} – {{ to_date|date:"d M Y" }})</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th scope="col">Hour</th><th scope="col" class="text-center">Bills</th><th scope="col" class="text-end">Revenue</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data.peak_hours %}
+                            <tr>
+                                <td class="fw-semibold">{{ row.hour|date:"H:i" }}</td>
+                                <td class="text-center">{{ row.count }}</td>
+                                <td class="text-end">{{ row.revenue|inr }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted py-4">No bills in this period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Top Services by Revenue</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th scope="col">Service</th><th scope="col" class="text-center">Qty</th><th scope="col" class="text-end">Revenue</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data.top_services %}
+                            <tr>
+                                <td class="fw-semibold">{{ row.description }}</td>
+                                <td class="text-center">{{ row.qty|floatformat:2 }}</td>
+                                <td class="text-end">{{ row.revenue|inr }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted py-4">No sales in this period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Sales by Employee</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th scope="col">Employee</th><th scope="col" class="text-center">Bills</th><th scope="col" class="text-end">Revenue</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data.per_employee %}
+                            <tr>
+                                <td class="fw-semibold">{{ row.created_by__first_name|default:row.created_by__username }}</td>
+                                <td class="text-center">{{ row.count }}</td>
+                                <td class="text-end">{{ row.revenue|inr }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted py-4">No bills in this period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

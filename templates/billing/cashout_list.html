@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-cash-coin me-2 text-primary"></i>Cash Out / E-Sathi</h5>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <a href="{% url 'billing:list' %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-receipt me-1"></i>Billing
+        </a>
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="date" name="from_date" class="form-control form-control-sm" value="{{ request.GET.from_date }}">
+            <input type="date" name="to_date" class="form-control form-control-sm" value="{{ request.GET.to_date }}">
+            <button class="btn btn-sm btn-outline-primary">Filter</button>
+            <a href="{% url 'billing:cashout_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </form>
+    </div>
+</div>
+
+{% if cashout_form %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-cash-coin me-2 text-primary"></i>New Cash Out</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                {% if cashout_form.non_field_errors %}
+                    <div class="col-12">
+                        {% for error in cashout_form.non_field_errors %}
+                            <div class="alert alert-danger mb-0">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="col-md-4">{% include "includes/field.html" with field=cashout_form.customer %}</div>
+                <div class="col-md-4">{% include "includes/field.html" with field=cashout_form.bank_account %}</div>
+                <div class="col-md-4">{% include "includes/field.html" with field=cashout_form.transfer_amount %}</div>
+                <div class="col-md-4">{% include "includes/field.html" with field=cashout_form.commission_percent %}</div>
+                <div class="col-md-8">{% include "includes/field.html" with field=cashout_form.notes %}</div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-cash-coin me-1"></i>Process Cash Out</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Reference</th>
+                    <th scope="col">Customer</th>
+                    <th scope="col">Bank Account</th>
+                    <th scope="col">Date</th>
+                    <th scope="col" class="text-end">Transfer</th>
+                    <th scope="col" class="text-end">Commission %</th>
+                    <th scope="col" class="text-end">Commission</th>
+                    <th scope="col" class="text-end">Cash Given</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cash_out in cash_outs %}
+                    <tr>
+                        <td class="fw-semibold">{{ cash_out.reference_number }}</td>
+                        <td>{{ cash_out.customer.full_name|default:"Walk-in" }}</td>
+                        <td>{{ cash_out.bank_account.account_name }}</td>
+                        <td>{{ cash_out.cash_out_on|date:"d M Y" }}</td>
+                        <td class="text-end">{{ cash_out.transfer_amount|inr }}</td>
+                        <td class="text-end">{{ cash_out.commission_percent|floatformat:2 }}%</td>
+                        <td class="text-end text-success fw-semibold">{{ cash_out.commission_amount|inr }}</td>
+                        <td class="text-end fw-semibold">{{ cash_out.cash_given|inr }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            <i class="bi bi-cash-coin fs-2 d-block mb-2"></i>
+                            No cash-outs recorded yet.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}
