@@ -81,13 +81,13 @@
                         {% for txn in transactions %}
                             <tr>
                                 <td class="small text-muted">{{ txn.entry_date|date:"d M Y" }}</td>
-                                <td><span class="badge text-bg-{% if txn.txn_type == 'CREDIT' %}success{% else %}danger{% endif %}">{{ txn.get_category_display }}</span></td>
+                                <td><span class="badge text-bg-{% if txn.is_credit %}success{% else %}danger{% endif %}">{{ txn.get_category_display }}</span></td>
                                 <td>{{ txn.party_name|default:"—" }}</td>
                                 <td class="text-end text-danger fw-semibold">
-                                    {% if txn.txn_type == 'DEBIT' %}{{ txn.amount|inr }}{% endif %}
+                                    {% if not txn.is_credit %}{{ txn.amount|inr }}{% endif %}
                                 </td>
                                 <td class="text-end text-success fw-semibold">
-                                    {% if txn.txn_type == 'CREDIT' %}{{ txn.amount|inr }}{% endif %}
+                                    {% if txn.is_credit %}{{ txn.amount|inr }}{% endif %}
                                 </td>
                                 <td class="small">{{ txn.created_by.get_full_name|default:"—" }}</td>
                             </tr>

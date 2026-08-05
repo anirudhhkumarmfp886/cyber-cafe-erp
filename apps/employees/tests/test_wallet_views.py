@@ -124,6 +124,21 @@ class StaffModuleViewTests(TestCase):
         self.assertRedirects(response, reverse("finance:bank_detail", kwargs={"pk": account.pk}))
         self.assertEqual(BankService.balance_of(account), 5000)
 
+    def test_bank_detail_statement_renders_credit_and_debit_columns(self):
+        account = BankService.create_account(
+            account_name="Business HDFC",
+            bank_name="HDFC Bank",
+            account_number="555566667777",
+            by=self.manager.user,
+        )
+        BankService.deposit(account=account, amount=5000, party_name="Walk-in", by=self.manager.user)
+        BankService.withdraw(account=account, amount=1500, party_name="Electricity", by=self.manager.user)
+        response = self.client.get(reverse("finance:bank_detail", kwargs={"pk": account.pk}))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertRegex(content, r'class="text-end text-success fw-semibold">\s*₹5000\.00')
+        self.assertRegex(content, r'class="text-end text-danger fw-semibold">\s*₹1500\.00')
+
 
 class PermissionEnforcementTests(TestCase):
     """Low-privilege roles must be denied on write actions."""

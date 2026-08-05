@@ -2,7 +2,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from apps.employees.models import Employee, Role, WalletTransaction, WalletTransactionCategory
+from apps.employees.models import Role, WalletTransaction, WalletTransactionCategory
 from apps.employees.services.employee_service import EmployeeService
 from apps.employees.services.wallet_service import WalletService
 

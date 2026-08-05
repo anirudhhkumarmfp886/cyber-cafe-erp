@@ -1,7 +1,7 @@
 """BankSelector — read-only access to bank accounts and transactions."""
 from django.db.models import Case, F, Sum, When
 
-from apps.finance.models import BankAccount, BankTransaction
+from apps.finance.models import BankAccount
 from apps.finance.models.enums import BankTransactionType
 
 

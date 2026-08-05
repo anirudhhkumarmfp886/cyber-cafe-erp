@@ -32,12 +32,12 @@ _PERMISSION_MODELS = [Employee, Wallet, WalletTransaction, CashBookEntry, BankAc
 _READ_ONLY_PERMS = {"view"}
 
 
-def _group_permissions(role, managed: bool) -> set[str]:
-    """codename set: add_*, change_*, delete_*, view_* for each model."""
+def _permissions_for(managed_models: set) -> set[str]:
+    """codename set: view_* for every model, plus add/change/delete for managed ones."""
     perms = set()
     for model in _PERMISSION_MODELS:
         perms.add(f"view_{model._meta.model_name}")
-        if managed:
+        if model in managed_models:
             perms.add(f"add_{model._meta.model_name}")
             perms.add(f"change_{model._meta.model_name}")
             perms.add(f"delete_{model._meta.model_name}")
@@ -52,13 +52,15 @@ class Command(BaseCommand):
         content_types = ContentType.objects.get_for_models(*_PERMISSION_MODELS).values()
         all_perms = Permission.objects.filter(content_type__in=content_types)
 
+        finance_models = {Wallet, WalletTransaction, CashBookEntry, BankAccount, BankTransaction}
+
         role_matrix = {
-            Role.OWNER: _group_permissions(Role.OWNER, managed=True),
-            Role.MANAGER: _group_permissions(Role.MANAGER, managed=True),
-            Role.ACCOUNTANT: _group_permissions(Role.ACCOUNTANT, managed=True),
-            Role.CASHIER: _group_permissions(Role.CASHIER, managed=False),
-            Role.COUNTER_STAFF: _group_permissions(Role.COUNTER_STAFF, managed=False),
-            Role.STAFF: _group_permissions(Role.STAFF, managed=False),
+            Role.OWNER: _permissions_for(set(_PERMISSION_MODELS)),
+            Role.MANAGER: _permissions_for(set(_PERMISSION_MODELS)),
+            Role.ACCOUNTANT: _permissions_for(finance_models),
+            Role.CASHIER: _permissions_for(set()),
+            Role.COUNTER_STAFF: _permissions_for(set()),
+            Role.STAFF: _permissions_for(set()),
         }
 
         new_groups = 0

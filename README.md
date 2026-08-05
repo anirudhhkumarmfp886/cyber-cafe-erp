@@ -6,8 +6,8 @@ An ERP platform that combines CRM, Billing, Accounting, Employee Management,
 Inventory, Customer Management, Wallet Engine, Cash Book, Bank Ledger,
 Reporting and Audit — built on Django.
 
-> Status: **Sprint 1 complete** — Foundation, Authentication, Roles,
-> Permissions, Employees, Base Layout.
+> Status: **Sprint 2 complete** — Foundation, Authentication, Roles,
+> Permissions, Employees, Wallet Engine, Cash Book, Bank Ledger.
 
 ---
 
@@ -37,7 +37,9 @@ apps/
 │                current-user middleware, template tags, context processors
 ├── accounts/    Custom User (AbstractBaseUser), login throttling,
 │                profile, admin
-├── employees/   Employee HR profile, roles, role<->group sync, CBVs
+├── employees/   Employee HR profile, roles, role<->group sync, wallets,
+│                CBVs
+├── finance/     Cash Book, Bank Ledger, derived balances, services
 └── pages/       Dashboard / home pages
 ```
 
@@ -46,8 +48,8 @@ apps/
 | Sprint | Deliverables                    | Status |
 |--------|---------------------------------|--------|
 | 1      | Foundation, Auth, Roles, Employees, Layout | ✅ Done |
-| 2      | Wallet Engine, Cash Book, Bank Ledger | Next |
-| 3      | Customers, Services, Daily Work Log | Planned |
+| 2      | Wallet Engine, Cash Book, Bank Ledger | ✅ Done |
+| 3      | Customers, Services, Daily Work Log | Next |
 | 4      | Billing, Dashboard, Reports, Analytics | Planned |
 
 ---

@@ -1,6 +1,4 @@
 """CashBookSelector — read-only access to cash book data."""
-from datetime import date
-
 from django.db.models import Case, F, Q, Sum, When
 
 from apps.finance.models import CashBookEntry

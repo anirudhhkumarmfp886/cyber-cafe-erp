@@ -2,7 +2,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from apps.finance.models import BankAccount, BankTransaction
+from apps.finance.models import BankTransaction
 from apps.finance.models.enums import BankTransactionCategory, BankTransactionType
 from apps.finance.services.bank_service import BankService
 
