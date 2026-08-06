@@ -1,3 +1,15 @@
-from apps.services.models.service import Service, ServiceCategory, ServicePriceHistory
+from apps.services.models.service import (
+    Category,
+    CustomFieldType,
+    Service,
+    ServiceCustomField,
+    ServicePriceHistory,
+)
 
-__all__ = ["Service", "ServiceCategory", "ServicePriceHistory"]
+__all__ = [
+    "Category",
+    "CustomFieldType",
+    "Service",
+    "ServiceCustomField",
+    "ServicePriceHistory",
+]

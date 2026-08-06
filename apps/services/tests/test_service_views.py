@@ -20,7 +20,7 @@ class ServiceViewTests(TestCase):
     def test_list_page_creates_service(self):
         response = self.client.post(
             reverse("services:list"),
-            {"name": "Gaming 1hr", "category": "GAMES", "price": "40"},
+            {"name": "Gaming 1hr", "new_category": "Games", "price": "40"},
         )
         self.assertRedirects(
             response,
@@ -28,6 +28,7 @@ class ServiceViewTests(TestCase):
         )
         service = Service.objects.get()
         self.assertEqual(service.price_history.count(), 1)
+        self.assertEqual(service.category_name, "Games")
 
     def test_detail_page_shows_price_history(self):
         service = ServiceService.create_service(data={"name": "Printing", "price": 5}, by=self.boss)
@@ -37,15 +38,31 @@ class ServiceViewTests(TestCase):
         self.assertContains(response, "Price History")
         self.assertContains(response, "6.00")
 
+    def test_list_page_filters_by_category(self):
+        from apps.services.models import Category
+
+        ServiceService.create_service(
+            data={"name": "Gaming 1hr", "new_category": "Games", "price": 40}, by=self.boss
+        )
+        ServiceService.create_service(
+            data={"name": "Printing", "new_category": "Printing", "price": 5}, by=self.boss
+        )
+        games = Category.objects.get(name="Games")
+        response = self.client.get(reverse("services:list"), {"category": str(games.pk)})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Gaming 1hr")
+        self.assertNotContains(response, "\u20b95.00")
+
     def test_detail_page_updates_price(self):
         service = ServiceService.create_service(data={"name": "Printing", "price": 5}, by=self.boss)
         response = self.client.post(
             reverse("services:detail", kwargs={"pk": service.pk}),
-            {"name": "Printing", "category": "PRINTING", "price": "8"},
+            {"name": "Printing", "new_category": "Printing", "price": "8"},
         )
         self.assertRedirects(response, reverse("services:detail", kwargs={"pk": service.pk}))
         service.refresh_from_db()
         self.assertEqual(service.price, 8)
+        self.assertEqual(service.category_name, "Printing")
         self.assertEqual(service.price_history.count(), 2)
 
 

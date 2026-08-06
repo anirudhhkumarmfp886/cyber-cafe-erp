@@ -23,6 +23,8 @@ from apps.billing.models import Invoice, InvoiceStatus
 from apps.billing.selectors.invoice_selector import InvoiceSelector
 from apps.billing.services.billing_service import BillingService, CashOutService
 
+_FORMSET_PREFIX = "line"
+
 
 class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = "billing.view_invoice"
@@ -46,7 +48,9 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context["pending_total"] = InvoiceSelector.pending_total()
         if self.request.user.has_perm("billing.add_invoice"):
             context["invoice_form"] = InvoiceForm()
-            context["line_formset"] = InvoiceLineFormSet(instance=Invoice())
+            context["line_formset"] = InvoiceLineFormSet(
+                instance=Invoice(), prefix=_FORMSET_PREFIX
+            )
         return context
 
     def get_form_error_response(self, form, formset):
@@ -56,11 +60,22 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context["line_formset"] = formset
         return self.render_to_response(context)
 
+    def _line_custom_values(self, row_index: int) -> dict:
+        """Collect the dynamic custom-field inputs for a formset row."""
+        prefix = f"cf_{row_index}_"
+        values = {}
+        for key, value in self.request.POST.items():
+            if key.startswith(prefix):
+                values[key[len(prefix):]] = value
+        return values
+
     def post(self, request):
         if not request.user.has_perm("billing.add_invoice"):
             return self.handle_no_permission()
         form = InvoiceForm(request.POST)
-        formset = InvoiceLineFormSet(request.POST, instance=Invoice())
+        formset = InvoiceLineFormSet(
+            request.POST, instance=Invoice(), prefix=_FORMSET_PREFIX
+        )
         if not (form.is_valid() and formset.is_valid()):
             return self.get_form_error_response(form, formset)
 
@@ -70,7 +85,14 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 service = line_form.cleaned_data.get("service")
                 qty = line_form.cleaned_data.get("qty")
                 if service and qty:
-                    lines.append((service, qty))
+                    row_index = line_form.prefix.split("-")[-1]
+                    lines.append(
+                        {
+                            "service": service,
+                            "qty": qty,
+                            "custom": self._line_custom_values(row_index),
+                        }
+                    )
         try:
             invoice = BillingService.create_invoice(
                 data=form.cleaned_data, lines=lines, by=request.user

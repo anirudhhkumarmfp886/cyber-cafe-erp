@@ -52,6 +52,17 @@
                                     <td class="text-end">{{ line.unit_price|inr }}</td>
                                     <td class="text-end fw-semibold">{{ line.amount|inr }}</td>
                                 </tr>
+                                {% if line.field_values.all %}
+                                <tr class="table-light">
+                                    <td colspan="4" class="ps-4 py-1 small">
+                                        {% for value in line.field_values.all %}
+                                            <span class="badge text-bg-light border me-1 mb-1">
+                                                {{ value.field_label }}: {{ value.display_value }}
+                                            </span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% endif %}
                             {% endfor %}
                         </tbody>
                         <tfoot class="table-light">

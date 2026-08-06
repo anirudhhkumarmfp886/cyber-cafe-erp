@@ -15,7 +15,7 @@ User = get_user_model()
 
 
 def _line_formset_data(service_pk, qty, extra_lines=0):
-    formset = InvoiceLineFormSet(instance=Invoice())
+    formset = InvoiceLineFormSet(instance=Invoice(), prefix="line")
     data = {
         f"{formset.prefix}-TOTAL_FORMS": str(1 + extra_lines),
         f"{formset.prefix}-INITIAL_FORMS": "0",

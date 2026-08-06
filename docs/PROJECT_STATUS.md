@@ -66,6 +66,42 @@ Tests: full suite passes. Ruff lint clean. All migrations applied.
    groups now match the matrix; debug test accounts were removed from the
    committed DB.
 
+### Sprint 4 follow-up — service categories + custom fields (this session)
+1. **Free-form categories** — `Service.category` is now a FK to the new
+   `services.Category` model instead of a fixed choice list. Defaults
+   (Games, Internet, Printing, Recharge, Snacks, Other) are seeded and
+   every existing service was mapped over (migration `services.0003`).
+   The service form has a **"New category"** input: pick an existing one
+   or type a brand-new one — the "Other / define your own" flow.
+2. **Custom fields per service** — `services.ServiceCustomField`
+   (label, type, required, help_text, ordering, `roles`). Types: TEXT,
+   NUMBER, PERCENT, DATE, **BANK_ACCOUNT**, **BANK_TRANSFER
+   (auto-deposit)**. Created/edited/removed by the **Owner only**
+   (custom-field manage perms are excluded from every other role in
+   `seed_roles`); staff can see the definitions.
+3. **Role-based field permissions** — each field lists the role codes that
+   may see/fill it (blank = everyone). Owner sets them in the add-field
+   form. `ServiceSelector.visible_custom_fields()` applies the rule, and
+   `BillingService` rejects any value for a field the billing user's role
+   is not allowed to fill.
+4. **Billing integration** — the billing screen fetches a service's fields
+   (JSON endpoint `/services/custom-fields-json/`) and renders them
+   dynamically per line. Values are validated + snapshotted into
+   `billing.InvoiceLineFieldValue` (label/type snapshot, so past bills stay
+   readable) and shown on the invoice detail page. A `BANK_TRANSFER`
+   amount paired with a `BANK_ACCOUNT` books a real bank deposit
+   (`PAYMENT_RECEIVED`) into the selected account atomically with the
+   invoice.
+5. **Example (Cash Withdrawal)**: owner adds the service under category
+   "Cash Withdrawal", then defines fields — "Amount given" (NUMBER),
+   "Commission %" (PERCENT, manager-only), "Customer transferred"
+   (BANK_TRANSFER), "Bank account" (BANK_ACCOUNT). When counter staff
+   bill it, the transfer is auto-deposited into the chosen bank account
+   and every value appears on the bill.
+6. Tests: +18 new service/billing tests (categories, custom-field CRUD,
+   role gating, required/type validation, auto-deposit, permission 403s,
+   JSON endpoint, category filter).
+
 ### Sprint 3 deliverables (built last session)
 1. **Customers** (`apps/customers/`) — profiles only (decision: wallets stay
    employee-only). `Customer` model (full_name, phone unique, email,

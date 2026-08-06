@@ -29,7 +29,7 @@ from apps.customers.models import Customer
 from apps.employees.models import Employee, Role, Wallet, WalletTransaction, WorkLogEntry
 from apps.employees.services.role_service import ROLE_GROUP_MAP
 from apps.finance.models import BankAccount, BankTransaction, CashBookEntry
-from apps.services.models import Service, ServicePriceHistory
+from apps.services.models import Category, Service, ServiceCustomField, ServicePriceHistory
 
 _PERMISSION_MODELS = [
     Employee,
@@ -42,6 +42,8 @@ _PERMISSION_MODELS = [
     Customer,
     Service,
     ServicePriceHistory,
+    Category,
+    ServiceCustomField,
     Invoice,
     InvoiceLine,
     InvoicePayment,
@@ -80,9 +82,17 @@ class Command(BaseCommand):
         finance_models = {Wallet, WalletTransaction, CashBookEntry, BankAccount, BankTransaction}
         billing_models = {Invoice, InvoiceLine, InvoicePayment, CashOut}
 
+        # Custom-field definitions are owner-managed: everyone can view them
+        # (view is included in every role below) but only the Owner can add,
+        # change or delete them.
+        custom_field_manage = {
+            f"{prefix}_servicecustomfield"
+            for prefix in ("add", "change", "delete")
+        }
+
         role_matrix = {
             Role.OWNER: _manage_permissions(all_models),
-            Role.MANAGER: _manage_permissions(all_models),
+            Role.MANAGER: _manage_permissions(all_models) - custom_field_manage,
             Role.ACCOUNTANT: _view_permissions(all_models)
             | _manage_permissions(finance_models | billing_models),
             Role.CASHIER: _view_permissions(all_models) | _create_permissions(billing_models),

@@ -9,7 +9,10 @@ Reporting and Audit — built on Django.
 > Status: **Sprint 4 complete** — Foundation, Authentication, Roles,
 > Permissions, Employees, Wallet Engine, Cash Book, Bank Ledger,
 > Customers, Services, Daily Work Log, Billing (invoices, credit,
-> cash-out / E-Sathi), Reports + Analytics with CSV export.
+> cash-out / E-Sathi), Reports + Analytics with CSV export. **Plus**:
+> free-form service categories and role-gated custom fields per service
+> (e.g. cash withdrawal amount, commission %, and an auto bank deposit
+> into a chosen account when billed).
 
 ---
 
@@ -43,8 +46,10 @@ apps/
 │                daily work log, CBVs
 ├── finance/     Cash Book, Bank Ledger, derived balances, services
 ├── customers/   Customer profiles + credit limits (profiles only in S3)
-├── services/    Service catalog + append-only price history
-├── billing/     Invoices + lines, credit settlement, cash-out / E-Sathi
+├── services/    Service catalog + free-form categories + custom fields
+│                (role-gated, per-service inputs captured on the bill)
+├── billing/     Invoices + lines, credit settlement, cash-out / E-Sathi,
+│                custom-field values + auto bank deposit
 ├── reports/     P&L, bank/wallet statements, ledger, salary, analytics, CSV
 └── pages/       Dashboard / home pages
 ```
@@ -57,6 +62,7 @@ apps/
 | 2      | Wallet Engine, Cash Book, Bank Ledger | ✅ Done |
 | 3      | Customers, Services, Daily Work Log | Done |
 | 4      | Billing, Dashboard, Reports, Analytics | Done |
+| 4.1    | Service categories (define your own) + custom fields per service (role-based, auto bank deposit) | **Done** (this session) |
 | 5      | Inventory | Next |
 
 ---

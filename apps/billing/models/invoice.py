@@ -18,7 +18,7 @@ from django.db import models
 from apps.common.models import BaseModel, money_field
 from apps.customers.models import Customer
 from apps.finance.models import BankAccount, CashBookEntry
-from apps.services.models import Service
+from apps.services.models import CustomFieldType, Service, ServiceCustomField
 
 
 class InvoicePaymentMode(models.TextChoices):
@@ -119,6 +119,54 @@ class InvoiceLine(BaseModel):
 
     def __str__(self):
         return f"{self.description} x {self.qty}"
+
+
+class InvoiceLineFieldValue(BaseModel):
+    """Snapshot of a service custom-field value captured on a bill line.
+
+    ``field_label`` / ``field_type`` are snapshotted at billing time so the
+    bill stays readable even if the custom-field definition is later
+    renamed or deactivated. A ``BANK_TRANSFER`` value lands as a real bank
+    deposit into the ``bank_account`` chosen by a paired ``BANK_ACCOUNT``
+    field (see BillingService).
+    """
+
+    line = models.ForeignKey(
+        InvoiceLine,
+        on_delete=models.CASCADE,
+        related_name="field_values",
+    )
+    field = models.ForeignKey(
+        ServiceCustomField,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+    field_label = models.CharField(max_length=100)
+    field_type = models.CharField(max_length=20)
+    value_text = models.CharField(max_length=255, blank=True)
+    bank_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Invoice Line Field Value"
+        verbose_name_plural = "Invoice Line Field Values"
+
+    def __str__(self):
+        return f"{self.line} - {self.field_label}: {self.display_value}"
+
+    @property
+    def display_value(self) -> str:
+        if self.field_type == CustomFieldType.BANK_ACCOUNT:
+            return self.bank_account.account_name if self.bank_account else ""
+        if self.field_type == CustomFieldType.PERCENT:
+            return f"{self.value_text}%"
+        return self.value_text
 
 
 class InvoicePayment(BaseModel):

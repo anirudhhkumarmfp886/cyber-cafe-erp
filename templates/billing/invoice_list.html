@@ -58,21 +58,24 @@
                     {% endif %}
                     {{ line_formset.management_form }}
                     {% for line_form in line_formset %}
-                        <div class="row g-2 align-items-end line-row">
-                            {{ line_form.id }}
-                            <div class="col-md-5">{% include "includes/field.html" with field=line_form.service %}</div>
-                            <div class="col-md-3">{% include "includes/field.html" with field=line_form.qty %}</div>
-                            <div class="col-md-2 pb-3">
-                                {% if line_formset.can_delete %}
-                                    <label class="form-label d-block">&nbsp;</label>
-                                    {{ line_form.DELETE }} <span class="small text-muted">remove</span>
-                                {% endif %}
+                        <div class="border rounded p-2 mb-2">
+                            <div class="row g-2 align-items-end line-row">
+                                {{ line_form.id }}
+                                <div class="col-md-5">{% include "includes/field.html" with field=line_form.service %}</div>
+                                <div class="col-md-3">{% include "includes/field.html" with field=line_form.qty %}</div>
+                                <div class="col-md-2 pb-3">
+                                    {% if line_formset.can_delete %}
+                                        <label class="form-label d-block">&nbsp;</label>
+                                        {{ line_form.DELETE }} <span class="small text-muted">remove</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-2 pb-3">
+                                    {% if line_form.service.errors or line_form.qty.errors %}
+                                        <span class="text-danger small">Fix the fields above</span>
+                                    {% endif %}
+                                </div>
                             </div>
-                            <div class="col-md-2 pb-3">
-                                {% if line_form.service.errors or line_form.qty.errors %}
-                                    <span class="text-danger small">Fix the fields above</span>
-                                {% endif %}
-                            </div>
+                            <div class="mt-1 cf-wrap" id="cf-wrap-{{ forloop.counter0 }}" data-row="{{ forloop.counter0 }}"></div>
                         </div>
                     {% endfor %}
                 </div>
@@ -137,4 +140,92 @@
 </div>
 
 {% include "includes/pagination.html" %}
+
+{% if line_formset %}
+<script>
+(function () {
+    const TOTAL = {{ line_formset.total_form_count }};
+    const PREFIX = "{{ line_formset.prefix }}";
+    const JSON_URL = "{% url 'services:custom_fields_json' %}";
+
+    function renderCustomFields(rowIndex, container, fields) {
+        container.innerHTML = '';
+        if (!fields || !fields.length) return;
+        fields.forEach(function (f) {
+            const wrap = document.createElement('div');
+            wrap.className = 'mb-2';
+            const label = document.createElement('label');
+            label.className = 'form-label small mb-1 fw-semibold';
+            label.textContent = f.label + (f.required ? ' *' : '');
+            const inputName = 'cf_' + rowIndex + '_' + f.id;
+            let control;
+            if (f.field_type === 'BANK_ACCOUNT') {
+                control = document.createElement('select');
+                control.name = inputName;
+                control.className = 'form-select form-select-sm';
+                const empty = document.createElement('option');
+                empty.value = '';
+                empty.textContent = '— Select bank account —';
+                control.appendChild(empty);
+                (f.bank_accounts || []).forEach(function (acc) {
+                    const o = document.createElement('option');
+                    o.value = acc.id;
+                    o.textContent = acc.name;
+                    control.appendChild(o);
+                });
+            } else {
+                control = document.createElement('input');
+                control.name = inputName;
+                control.className = 'form-control form-control-sm';
+                if (f.field_type === 'DATE') {
+                    control.type = 'date';
+                } else if (f.field_type === 'NUMBER' || f.field_type === 'BANK_TRANSFER') {
+                    control.type = 'number';
+                    control.step = '0.01';
+                    control.min = '0';
+                } else if (f.field_type === 'PERCENT') {
+                    control.type = 'number';
+                    control.step = '0.01';
+                    control.min = '0';
+                    control.max = '100';
+                } else {
+                    control.type = 'text';
+                }
+            }
+            if (f.required) control.required = true;
+            wrap.appendChild(label);
+            wrap.appendChild(control);
+            if (f.help_text) {
+                const ht = document.createElement('div');
+                ht.className = 'form-text';
+                ht.textContent = f.help_text;
+                wrap.appendChild(ht);
+            }
+            container.appendChild(wrap);
+        });
+    }
+
+    function loadCustomFields(rowIndex, serviceId, container) {
+        if (!serviceId) { container.innerHTML = ''; return; }
+        container.innerHTML = '<div class="small text-muted py-1">Loading fields...</div>';
+        fetch(JSON_URL + '?service=' + encodeURIComponent(serviceId))
+            .then(function (r) { return r.json(); })
+            .then(function (data) { renderCustomFields(rowIndex, container, data.fields); })
+            .catch(function () { container.innerHTML = ''; });
+    }
+
+    function bindRow(i) {
+        const sel = document.getElementById('id_' + PREFIX + '-' + i + '-service');
+        const container = document.getElementById('cf-wrap-' + i);
+        if (!sel || !container) return;
+        sel.addEventListener('change', function () {
+            loadCustomFields(i, sel.value, container);
+        });
+        if (sel.value) loadCustomFields(i, sel.value, container);
+    }
+
+    for (let i = 0; i < TOTAL; i++) bindRow(i);
+})();
+</script>
+{% endif %}
 {% endblock %}

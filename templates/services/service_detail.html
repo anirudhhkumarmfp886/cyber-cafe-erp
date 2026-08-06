@@ -22,7 +22,7 @@
                 <h3 class="fw-bold text-primary mb-1">{{ service.price|inr }}</h3>
                 <span class="text-muted small">Current price{{ service.unit|yesno:" /," }}{{ service.unit }}</span>
                 <div class="mt-3 d-flex justify-content-center gap-2">
-                    <span class="badge text-bg-info">{{ service.get_category_display }}</span>
+                    <span class="badge text-bg-info">{{ service.category_name }}</span>
                     <span class="badge text-bg-{% if service.is_active %}success{% else %}secondary{% endif %}">
                         {% if service.is_active %}Active{% else %}Inactive{% endif %}
                     </span>
@@ -50,6 +50,7 @@
                         {% endif %}
                         <div class="col-12">{% include "includes/field.html" with field=service_form.name %}</div>
                         <div class="col-12">{% include "includes/field.html" with field=service_form.category %}</div>
+                        <div class="col-12">{% include "includes/field.html" with field=service_form.new_category %}</div>
                         <div class="col-6">{% include "includes/field.html" with field=service_form.unit %}</div>
                         <div class="col-6">{% include "includes/field.html" with field=service_form.price %}</div>
                         <div class="col-12">{% include "includes/field.html" with field=service_form.description %}</div>
@@ -63,6 +64,88 @@
     </div>
 
     <div class="col-lg-7">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 fw-semibold">Custom Fields</h6>
+                <span class="badge text-bg-light">Shown on the bill</span>
+            </div>
+            <div class="card-body">
+                {% if custom_fields %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Label</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Required</th>
+                                <th scope="col">Allowed roles</th>
+                                <th scope="col" class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for field in custom_fields %}
+                                <tr>
+                                    <td class="fw-semibold">
+                                        {{ field.label }}
+                                        {% if field.help_text %}<div class="small text-muted">{{ field.help_text }}</div>{% endif %}
+                                    </td>
+                                    <td><span class="badge text-bg-secondary">{{ field.get_field_type_display }}</span></td>
+                                    <td>{% if field.required %}<span class="text-danger">Yes</span>{% else %}No{% endif %}</td>
+                                    <td class="small">
+                                        {% if field.role_list %}
+                                            {% for code in field.role_list %}<span class="badge text-bg-light border me-1">{{ code }}</span>{% endfor %}
+                                        {% else %}
+                                            <span class="text-muted">Everyone</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        {% if perms.services.delete_servicecustomfield %}
+                                        <form method="post" action="{% url 'services:field_delete' service.pk field.pk %}" class="d-inline"
+                                              onsubmit="return confirm('Remove custom field \'{{ field.label }}\'? Past bill values are kept.')">
+                                            {% csrf_token %}
+                                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Remove</button>
+                                        </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    <p class="text-muted small mb-0">No custom fields yet. Add inputs that staff must fill when this service is billed (e.g. amount, commission %, bank account).</p>
+                {% endif %}
+
+                {% if custom_field_form %}
+                <hr>
+                <h6 class="fw-semibold mb-3"><i class="bi bi-plus-circle me-1 text-primary"></i>Add Custom Field</h6>
+                <form method="post" action="{% url 'services:field_create' service.pk %}" class="row g-3">
+                    {% csrf_token %}
+                    <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.label %}</div>
+                    <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.field_type %}</div>
+                    <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.ordering %}</div>
+                    <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.required %}</div>
+                    <div class="col-12">{% include "includes/field.html" with field=custom_field_form.help_text %}</div>
+                    <div class="col-12">
+                        <label class="form-label">{{ custom_field_form.roles.label }}</label>
+                        <div class="d-flex flex-wrap gap-3">
+                            {% for role in custom_field_form.roles %}
+                                <div class="form-check">
+                                    {{ role.tag }}
+                                    <label class="form-check-label small" for="{{ role.id_for_label }}">{{ role.choice_label }}</label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% if custom_field_form.roles.help_text %}<div class="form-text">{{ custom_field_form.roles.help_text }}</div>{% endif %}
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Add Field</button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="card shadow-sm border-0">
             <div class="card-header bg-white d-flex align-items-center justify-content-between">
                 <h6 class="mb-0 fw-semibold">Price History</h6>

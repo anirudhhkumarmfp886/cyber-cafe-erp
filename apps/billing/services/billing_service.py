@@ -22,6 +22,7 @@ from apps.billing.models import (
     CashOut,
     Invoice,
     InvoiceLine,
+    InvoiceLineFieldValue,
     InvoicePayment,
     InvoicePaymentMode,
     InvoiceStatus,
@@ -34,6 +35,8 @@ from apps.finance.models.enums import (
 )
 from apps.finance.services.bank_service import BankService
 from apps.finance.services.cashbook_service import CashBookService
+from apps.services.models import CustomFieldType, ServiceCustomField
+from apps.services.selectors.service_selector import ServiceSelector
 
 _MONEY = Decimal("0.01")
 
@@ -42,26 +45,46 @@ def _round(value) -> Decimal:
     return Decimal(str(value)).quantize(_MONEY, rounding=ROUND_HALF_UP)
 
 
+def _parse_line(line):
+    """Normalise a line into (service, qty, custom) — accepts legacy tuples."""
+    if isinstance(line, dict):
+        return line["service"], line["qty"], line.get("custom") or {}
+    if isinstance(line, (tuple, list)):
+        service, qty = line[0], line[1]
+        custom = line[2] if len(line) > 2 else {}
+        return service, qty, custom
+    raise ValueError("Each line must be a (service, qty) tuple or a dict with service/qty/custom.")
+
+
 class BillingService:
     @staticmethod
     def create_invoice(*, data: dict, lines: list, by=None) -> Invoice:
-        """Create an invoice from header data + [(service, qty), ...] lines.
+        """Create an invoice from header data + lines.
 
-        ``lines`` must be a non-empty list of ``(Service, qty)`` tuples.
+        Each line is ``(Service, qty)`` or ``{"service": S, "qty": Q, "custom": {...}}``
+        where ``custom`` maps custom-field PKs to submitted values. Values are
+        validated against the service's field definitions and the billing
+        user's role, then snapshotted onto the invoice line. A paired
+        ``BANK_TRANSFER`` + ``BANK_ACCOUNT`` set books a real bank deposit
+        into the chosen account atomically with the invoice.
         """
         if not lines:
             raise ValueError("An invoice needs at least one line item.")
 
-        subtotal = Decimal("0")
         prepared = []
-        for service, qty in lines:
+        for raw in lines:
+            service, qty, custom = _parse_line(raw)
             if qty is None or qty <= 0:
                 raise ValueError("Line quantities must be greater than zero.")
             if not service.is_active:
                 raise ValueError(f"Service '{service.name}' is inactive and cannot be billed.")
             amount = _round(Decimal(str(qty)) * Decimal(str(service.price)))
+            field_values, deposit = BillingService._resolve_custom_fields(service, custom, by)
+            prepared.append((service, qty, amount, field_values, deposit))
+
+        subtotal = Decimal("0")
+        for _, _, amount, _, _ in prepared:
             subtotal += amount
-            prepared.append((service, qty, amount))
 
         discount = Decimal(str(data.get("discount") or 0))
         if discount < 0:
@@ -112,8 +135,8 @@ class BillingService:
                 created_by=by,
                 updated_by=by,
             )
-            for service, qty, amount in prepared:
-                InvoiceLine.objects.create(
+            for service, qty, amount, field_values, deposit in prepared:
+                line = InvoiceLine.objects.create(
                     invoice=invoice,
                     service=service,
                     description=service.name,
@@ -123,7 +146,127 @@ class BillingService:
                     created_by=by,
                     updated_by=by,
                 )
+                BillingService._store_field_values(line, field_values, by)
+                if deposit is not None:
+                    bank_account, transfer_amount = deposit
+                    BankService.deposit(
+                        account=bank_account,
+                        amount=transfer_amount,
+                        category=BankTransactionCategory.PAYMENT_RECEIVED,
+                        party_name=customer.full_name if customer else "Walk-in Customer",
+                        description=(
+                            f"{service.name} transfer-in for {invoice.invoice_number}"
+                        ),
+                        by=by,
+                    )
             return invoice
+
+    @staticmethod
+    def _resolve_custom_fields(service, custom_data, by):
+        """Validate submitted custom-field values for the billing user's role.
+
+        Returns ``(field_values, deposit)`` where ``field_values`` is a list
+        of ``(field, value_text, bank_account)`` tuples and ``deposit`` is
+        ``(bank_account, amount)`` when a bank-transfer pair is present.
+        """
+        custom_data = custom_data or {}
+        field_values = []
+        transfer_amount = None
+        bank_account = None
+        allowed_fields = ServiceSelector.visible_custom_fields(service, by)
+        allowed_keys = {str(f.pk) for f in allowed_fields}
+
+        for field in allowed_fields:
+            raw = custom_data.get(str(field.pk))
+            value_text = ""
+            account = None
+
+            if field.field_type == CustomFieldType.BANK_ACCOUNT:
+                if raw:
+                    account = BankAccount.objects.filter(id=str(raw)).first()
+                    if account is None:
+                        raise ValueError(f"Invalid bank account for '{field.label}'.")
+                if field.required and account is None:
+                    raise ValueError(f"'{field.label}' is required for {service.name}.")
+                bank_account = account
+
+            elif field.field_type == CustomFieldType.BANK_TRANSFER:
+                if raw:
+                    amount = _round(raw)
+                    if amount <= 0:
+                        raise ValueError(f"'{field.label}' must be greater than zero.")
+                    value_text = str(amount)
+                    transfer_amount = amount
+                if field.required and not raw:
+                    raise ValueError(f"'{field.label}' is required for {service.name}.")
+
+            elif field.field_type == CustomFieldType.PERCENT:
+                if raw:
+                    percent = Decimal(str(raw))
+                    if percent < 0 or percent > 100:
+                        raise ValueError(f"'{field.label}' must be between 0 and 100.")
+                    value_text = str(percent)
+                if field.required and not raw:
+                    raise ValueError(f"'{field.label}' is required for {service.name}.")
+
+            elif field.field_type == CustomFieldType.NUMBER:
+                if raw:
+                    number = Decimal(str(raw))
+                    if number < 0:
+                        raise ValueError(f"'{field.label}' cannot be negative.")
+                    value_text = str(_round(number))
+                if field.required and not raw:
+                    raise ValueError(f"'{field.label}' is required for {service.name}.")
+
+            elif field.field_type == CustomFieldType.DATE:
+                if raw:
+                    from datetime import datetime
+
+                    try:
+                        value_text = datetime.strptime(str(raw), "%Y-%m-%d").date().isoformat()
+                    except ValueError:
+                        raise ValueError(f"'{field.label}' must be a valid date.")
+                if field.required and not raw:
+                    raise ValueError(f"'{field.label}' is required for {service.name}.")
+
+            else:  # TEXT
+                value_text = str(raw).strip() if raw else ""
+                if field.required and not value_text:
+                    raise ValueError(f"'{field.label}' is required for {service.name}.")
+
+            field_values.append((field, value_text, account))
+
+        submitted_keys = {str(k) for k in (custom_data.keys() or [])}
+        for key in submitted_keys:
+            if key not in allowed_keys and str(custom_data.get(key) or "").strip():
+                field = ServiceCustomField.objects.filter(pk=key).first()
+                label = field.label if field else "This field"
+                raise ValueError(f"You do not have permission to set '{label}'.")
+
+        deposit = None
+        if transfer_amount is not None:
+            if bank_account is None:
+                raise ValueError(
+                    f"'{service.name}' needs a bank account field to deposit the transfer."
+                )
+            deposit = (bank_account, transfer_amount)
+        return field_values, deposit
+
+    @staticmethod
+    def _store_field_values(line: InvoiceLine, field_values, by=None) -> None:
+        for field, value_text, bank_account in field_values:
+            if not value_text and bank_account is None:
+                continue
+            InvoiceLineFieldValue.objects.create(
+                line=line,
+                field=field,
+                field_label=field.label,
+                field_type=field.field_type,
+                value_text=value_text,
+                bank_account=bank_account,
+                created_by=by,
+                updated_by=by,
+            )
 
     @staticmethod
     @transaction.atomic
