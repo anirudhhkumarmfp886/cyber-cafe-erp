@@ -4,7 +4,8 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.services.owner_bootstrap_service import OwnerBootstrapService
-from apps.employees.models import Employee, Role
+from apps.employees.models import Employee, Role, WalletType
+from apps.employees.services.wallet_service import WalletService
 
 User = get_user_model()
 
@@ -22,7 +23,11 @@ class OwnerBootstrapServiceTests(TestCase):
         employee = Employee.objects.get(user=user)
         self.assertEqual(employee.role, Role.OWNER)
         self.assertEqual(employee.status, "ACTIVE")
-        self.assertTrue(hasattr(employee, "wallet"))
+        # Wallets are minted lazily per type (CASH + ONLINE) via get_or_create.
+        self.assertEqual(
+            WalletService.balance_of(WalletService.get_or_create_wallet(employee, WalletType.CASH)),
+            0,
+        )
         self.assertTrue(OwnerBootstrapService.is_bootstrap_required() is False)
 
     def test_second_owner_rejected(self):

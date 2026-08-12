@@ -11,6 +11,7 @@ from datetime import date
 from django.db import models
 
 from apps.common.models import BaseModel, money_field
+from apps.employees.models import Employee
 from apps.finance.models.enums import CashEntryCategory, CashEntryType, PaymentMode
 
 
@@ -31,6 +32,14 @@ class CashBookEntry(BaseModel):
         help_text="Who we received from / paid to (customer, vendor, party).",
     )
     description = models.TextField(blank=True)
+    staff = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cash_entries",
+        help_text="Responsible staff member — the entry is maintained in their cash book.",
+    )
 
     class Meta:
         ordering = ["-entry_date", "-created_at"]
@@ -38,6 +47,12 @@ class CashBookEntry(BaseModel):
         verbose_name_plural = "Cash Book Entries"
         indexes = [
             models.Index(fields=["entry_date", "entry_type"]),
+            models.Index(fields=["staff", "entry_date"]),
+        ]
+        permissions = [
+            ("add_cashbookincome", "Can add cash book income entries"),
+            ("add_cashbookexpense", "Can add cash book expense entries"),
+            ("withdraw_shop_cash", "Can withdraw cash from the shop cash book"),
         ]
 
     def __str__(self):

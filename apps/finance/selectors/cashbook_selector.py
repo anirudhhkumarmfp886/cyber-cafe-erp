@@ -10,6 +10,8 @@ class CashBookSelector:
     def list_entries(filters: dict | None = None):
         queryset = CashBookEntry.objects.order_by("-entry_date", "-created_at")
         filters = filters or {}
+        if filters.get("staff"):
+            queryset = queryset.filter(staff=filters["staff"])
         if filters.get("entry_type"):
             queryset = queryset.filter(entry_type=filters["entry_type"])
         if filters.get("category"):
@@ -31,8 +33,15 @@ class CashBookSelector:
         return CashBookEntry.objects.filter(id=entry_id).first()
 
     @staticmethod
-    def balance() -> float:
-        total = CashBookEntry.objects.aggregate(
+    def _base_for_staff(staff=None):
+        queryset = CashBookEntry.objects
+        if staff:
+            queryset = queryset.filter(staff=staff)
+        return queryset
+
+    @staticmethod
+    def balance(staff=None) -> float:
+        total = CashBookSelector._base_for_staff(staff).aggregate(
             net=Sum(
                 Case(
                     When(entry_type=CashEntryType.INCOME, then=F("amount")),
@@ -43,8 +52,8 @@ class CashBookSelector:
         return total or 0
 
     @staticmethod
-    def balance_on(day) -> float:
-        total = CashBookEntry.objects.filter(entry_date__lte=day).aggregate(
+    def balance_on(day, staff=None) -> float:
+        total = CashBookSelector._base_for_staff(staff).filter(entry_date__lte=day).aggregate(
             net=Sum(
                 Case(
                     When(entry_type=CashEntryType.INCOME, then=F("amount")),
@@ -55,8 +64,8 @@ class CashBookSelector:
         return total or 0
 
     @staticmethod
-    def income_total(from_date=None, to_date=None) -> float:
-        queryset = CashBookEntry.objects.filter(entry_type=CashEntryType.INCOME)
+    def income_total(from_date=None, to_date=None, staff=None) -> float:
+        queryset = CashBookSelector._base_for_staff(staff).filter(entry_type=CashEntryType.INCOME)
         if from_date:
             queryset = queryset.filter(entry_date__gte=from_date)
         if to_date:
@@ -64,8 +73,8 @@ class CashBookSelector:
         return queryset.aggregate(total=Sum("amount"))["total"] or 0
 
     @staticmethod
-    def expense_total(from_date=None, to_date=None) -> float:
-        queryset = CashBookEntry.objects.filter(entry_type=CashEntryType.EXPENSE)
+    def expense_total(from_date=None, to_date=None, staff=None) -> float:
+        queryset = CashBookSelector._base_for_staff(staff).filter(entry_type=CashEntryType.EXPENSE)
         if from_date:
             queryset = queryset.filter(entry_date__gte=from_date)
         if to_date:

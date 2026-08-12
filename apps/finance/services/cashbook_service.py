@@ -31,6 +31,7 @@ class CashBookService:
         description: str = "",
         entry_date=None,
         by=None,
+        staff=None,
     ) -> CashBookEntry:
         return CashBookService._record(
             entry_type=CashEntryType.INCOME,
@@ -41,6 +42,7 @@ class CashBookService:
             description=description,
             entry_date=entry_date,
             by=by,
+            staff=staff,
         )
 
     @staticmethod
@@ -53,6 +55,7 @@ class CashBookService:
         description: str = "",
         entry_date=None,
         by=None,
+        staff=None,
     ) -> CashBookEntry:
         return CashBookService._record(
             entry_type=CashEntryType.EXPENSE,
@@ -63,6 +66,53 @@ class CashBookService:
             description=description,
             entry_date=entry_date,
             by=by,
+            staff=staff,
+        )
+
+    @staticmethod
+    def owner_withdraw(
+        *,
+        amount,
+        payment_mode: str = "CASH",
+        description: str = "",
+        entry_date=None,
+        by=None,
+        staff=None,
+    ) -> CashBookEntry:
+        """Owner takes cash out of the shop — booked as an expense entry."""
+        return CashBookService._record(
+            entry_type=CashEntryType.EXPENSE,
+            amount=amount,
+            category=CashEntryCategory.OWNER_WITHDRAWAL,
+            payment_mode=payment_mode,
+            party_name="Owner",
+            description=description,
+            entry_date=entry_date,
+            by=by,
+            staff=staff,
+        )
+
+    @staticmethod
+    def owner_deposit(
+        *,
+        amount,
+        payment_mode: str = "CASH",
+        description: str = "",
+        entry_date=None,
+        by=None,
+        staff=None,
+    ) -> CashBookEntry:
+        """Owner puts cash into the shop — booked as an income entry."""
+        return CashBookService._record(
+            entry_type=CashEntryType.INCOME,
+            amount=amount,
+            category=CashEntryCategory.OWNER_DEPOSIT,
+            payment_mode=payment_mode,
+            party_name="Owner",
+            description=description,
+            entry_date=entry_date,
+            by=by,
+            staff=staff,
         )
 
     @staticmethod
@@ -76,6 +126,7 @@ class CashBookService:
         description: str,
         entry_date,
         by,
+        staff,
     ) -> CashBookEntry:
         if amount is None or amount <= 0:
             raise ValueError("Amount must be greater than zero.")
@@ -84,6 +135,10 @@ class CashBookService:
             raise ValueError(f"Category '{category}' is not valid for {entry_type} entries.")
         if payment_mode not in dict(CashBookEntry._meta.get_field("payment_mode").choices):
             raise ValueError(f"Unknown payment mode: {payment_mode}")
+
+        responsible_staff = staff
+        if responsible_staff is None and by is not None:
+            responsible_staff = getattr(by, "employee", None)
 
         with transaction.atomic():
             return CashBookEntry.objects.create(
@@ -95,6 +150,7 @@ class CashBookService:
                 reference_number=ReferenceService.next(ReferenceService.CASH_BOOK),
                 party_name=party_name,
                 description=description,
+                staff=responsible_staff,
                 created_by=by,
                 updated_by=by,
             )
