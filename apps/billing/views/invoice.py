@@ -17,13 +17,16 @@ from apps.billing.forms.invoice import (
     CashOutForm,
     InvoiceForm,
     InvoiceLineFormSet,
+    PaymentSplitFormSet,
     SettleInvoiceForm,
 )
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.billing.selectors.invoice_selector import InvoiceSelector
 from apps.billing.services.billing_service import BillingService, CashOutService
+from apps.customers.services.customer_service import CustomerService
 
 _FORMSET_PREFIX = "line"
+_PAY_PREFIX = "pay"
 
 
 class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -46,18 +49,21 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context["page_title"] = "Billing"
         context["statuses"] = InvoiceStatus.choices
         context["pending_total"] = InvoiceSelector.pending_total()
+        context["can_create_customer"] = self.request.user.has_perm("customers.add_customer")
         if self.request.user.has_perm("billing.add_invoice"):
             context["invoice_form"] = InvoiceForm()
             context["line_formset"] = InvoiceLineFormSet(
                 instance=Invoice(), prefix=_FORMSET_PREFIX
             )
+            context["payment_formset"] = PaymentSplitFormSet(prefix=_PAY_PREFIX)
         return context
 
-    def get_form_error_response(self, form, formset):
+    def get_form_error_response(self, form, formset, payment_formset=None):
         self.object_list = self.get_queryset()
         context = self.get_context_data()
         context["invoice_form"] = form
         context["line_formset"] = formset
+        context["payment_formset"] = payment_formset or PaymentSplitFormSet(prefix=_PAY_PREFIX)
         return self.render_to_response(context)
 
     def _line_custom_values(self, row_index: int) -> dict:
@@ -76,8 +82,28 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         formset = InvoiceLineFormSet(
             request.POST, instance=Invoice(), prefix=_FORMSET_PREFIX
         )
-        if not (form.is_valid() and formset.is_valid()):
-            return self.get_form_error_response(form, formset)
+        pay_formset = PaymentSplitFormSet(request.POST, prefix=_PAY_PREFIX)
+        pay_formset_valid = True
+        if "pay-TOTAL_FORMS" in request.POST:
+            pay_formset_valid = pay_formset.is_valid()
+        if not (form.is_valid() and formset.is_valid() and pay_formset_valid):
+            return self.get_form_error_response(form, formset, pay_formset)
+
+        data = form.cleaned_data
+        customer_name = (data.get("customer_name") or "").strip()
+        if (
+            customer_name
+            and data.get("create_customer")
+            and request.user.has_perm("customers.add_customer")
+        ):
+            try:
+                data["customer"] = CustomerService.create_customer(
+                    data={"full_name": customer_name}, by=request.user
+                )
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                form.add_error("customer_name", str(exc))
+                return self.get_form_error_response(form, formset, pay_formset)
 
         lines = []
         for line_form in formset.forms:
@@ -93,14 +119,26 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                             "custom": self._line_custom_values(row_index),
                         }
                     )
+
+        payments = []
+        for pay_form in pay_formset.forms:
+            cleaned = pay_form.cleaned_data
+            if cleaned and cleaned.get("amount"):
+                payments.append(
+                    {
+                        "mode": cleaned["mode"],
+                        "amount": cleaned["amount"],
+                        "bank_account": cleaned.get("bank_account"),
+                    }
+                )
         try:
             invoice = BillingService.create_invoice(
-                data=form.cleaned_data, lines=lines, by=request.user
+                data=form.cleaned_data, lines=lines, payments=payments, by=request.user
             )
         except ValueError as exc:
             messages.error(request, str(exc))
             form.add_error(None, str(exc))
-            return self.get_form_error_response(form, formset)
+            return self.get_form_error_response(form, formset, pay_formset)
         messages.success(request, f"Invoice {invoice.invoice_number} created ({invoice.total}).")
         return HttpResponseRedirect(reverse_lazy("billing:detail", kwargs={"pk": invoice.pk}))
 

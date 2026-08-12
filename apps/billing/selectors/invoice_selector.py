@@ -28,6 +28,7 @@ class InvoiceSelector:
         if q:
             queryset = queryset.filter(
                 Q(customer__full_name__icontains=q)
+                | Q(customer_name__icontains=q)
                 | Q(invoice_number__icontains=q)
             )
         return queryset
@@ -42,7 +43,9 @@ class InvoiceSelector:
 
     @staticmethod
     def payments(invoice):
-        return invoice.payments.order_by("-payment_date", "-created_at")
+        return invoice.payments.select_related("bank_account").order_by(
+            "-payment_date", "-created_at"
+        )
 
     @staticmethod
     def outstanding_for_customer(customer: Customer) -> Decimal:

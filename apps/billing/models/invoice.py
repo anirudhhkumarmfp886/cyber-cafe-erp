@@ -17,7 +17,7 @@ from django.db import models
 
 from apps.common.models import BaseModel, money_field
 from apps.customers.models import Customer
-from apps.finance.models import BankAccount, CashBookEntry
+from apps.finance.models import BankAccount, BankTransaction, CashBookEntry
 from apps.services.models import CustomFieldType, Service, ServiceCustomField
 
 
@@ -44,6 +44,12 @@ class Invoice(BaseModel):
         blank=True,
         related_name="invoices",
         help_text="Walk-in bills may leave this blank; credit bills require a customer.",
+    )
+    customer_name = models.CharField(
+        max_length=150,
+        blank=True,
+        db_index=True,
+        help_text="Snapshot of the customer name for walk-in bills without a linked customer record.",
     )
     payment_mode = models.CharField(
         max_length=20,
@@ -85,6 +91,12 @@ class Invoice(BaseModel):
         return f"{self.invoice_number} {self.total}"
 
     @property
+    def customer_display(self) -> str:
+        if self.customer:
+            return self.customer.full_name
+        return self.customer_name or "Walk-in Customer"
+
+    @property
     def paid_amount(self):
         total = self.payments.aggregate(paid=models.Sum("amount"))["paid"]
         return total or 0
@@ -119,6 +131,32 @@ class InvoiceLine(BaseModel):
 
     def __str__(self):
         return f"{self.description} x {self.qty}"
+
+    @property
+    def withdrawal_summary(self) -> str | None:
+        """Cash-withdrawal breakdown, e.g. ``1000 + 4% = 1040``.
+
+        Returns ``None`` for ordinary lines. The transfer value is read from
+        the line's snapshotted field values.
+        """
+        from decimal import Decimal
+
+        def _fmt(value) -> str:
+            text = str(Decimal(value).quantize(Decimal("0.01")))
+            return text[:-3] if text.endswith(".00") else text
+
+        transfer = None
+        percent = None
+        for value in self.field_values.all():
+            if value.field_type == CustomFieldType.BANK_TRANSFER and value.value_text:
+                transfer = Decimal(value.value_text)
+            elif value.field_type == CustomFieldType.PERCENT and value.value_text:
+                percent = Decimal(value.value_text)
+        if transfer is None:
+            return None
+        percent = percent or Decimal("0")
+        cash_given = transfer * Decimal("100") / (Decimal("100") + percent)
+        return f"{_fmt(cash_given)} + {_fmt(percent)}% = {_fmt(transfer)}"
 
 
 class InvoiceLineFieldValue(BaseModel):
@@ -180,6 +218,22 @@ class InvoicePayment(BaseModel):
     payment_date = models.DateField(default=date.today, db_index=True)
     cash_entry = models.ForeignKey(
         CashBookEntry,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        editable=False,
+    )
+    bank_account = models.ForeignKey(
+        BankAccount,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoice_payments",
+        help_text="Bank / UPI account that received this payment (for non-cash modes).",
+    )
+    bank_transaction = models.ForeignKey(
+        BankTransaction,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

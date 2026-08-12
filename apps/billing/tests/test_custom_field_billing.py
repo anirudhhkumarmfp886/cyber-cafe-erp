@@ -1,14 +1,17 @@
-"""Tests for billing with service custom fields (incl. auto bank deposit)."""
+"""Tests for billing with service custom fields (incl. cash-withdrawal lines)."""
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
 from apps.billing.services.billing_service import BillingService
-from apps.employees.models import Role
+from apps.employees.models import Role, WalletType
 from apps.employees.services.employee_service import EmployeeService
-from apps.finance.models import BankTransaction
-from apps.finance.models.enums import BankTransactionCategory
+from apps.employees.services.wallet_service import WalletService
+from apps.finance.models import BankTransaction, CashBookEntry
+from apps.finance.models.enums import CashEntryCategory
 from apps.finance.services.bank_service import BankService
 from apps.services.services.service_service import ServiceService
 
@@ -80,21 +83,44 @@ class CustomFieldBillingServiceTests(TestCase):
         with self.assertRaisesMessage(ValueError, "is required"):
             self._bill({}, by=self.manager)
 
-    def test_bank_transfer_books_deposit_into_chosen_account(self):
+    def test_bank_transfer_books_withdrawal_ledger(self):
         transfer = self._add_field("Transfer Amount", "BANK_TRANSFER", required=True)
         bank = self._add_field("Bank Account", "BANK_ACCOUNT", required=True)
+        WalletService.top_up(
+            employee=self.manager.employee,
+            wallet_type=WalletType.CASH,
+            amount=5000,
+            by=self.owner,
+        )
         invoice = self._bill(
             {str(transfer.pk): "5000", str(bank.pk): str(self.account.pk)},
             by=self.manager,
         )
         line = invoice.lines.get()
+        # The withdrawal line is valued at the transfer amount, not the fee.
+        self.assertEqual(line.amount, Decimal("5000"))
+        self.assertEqual(line.withdrawal_summary, "5000 + 0% = 5000")
         bank_value = line.field_values.get(field_type="BANK_ACCOUNT")
         self.assertEqual(bank_value.bank_account, self.account)
-        deposit = BankTransaction.objects.filter(
-            account=self.account, category=BankTransactionCategory.PAYMENT_RECEIVED
+        # No auto bank deposit for a cash-paid withdrawal.
+        self.assertFalse(BankTransaction.objects.filter(account=self.account).exists())
+        # Cash handed to the customer was reimbursed by the cash payment.
+        self.assertEqual(
+            WalletService.balance_of_employee(self.manager.employee, WalletType.CASH),
+            Decimal("5000"),
         )
-        self.assertEqual(deposit.count(), 1)
-        self.assertEqual(deposit.first().amount, 5000)
+        from apps.employees.models import WalletTransactionCategory
+
+        self.assertTrue(
+            WalletTransactionCategory.CASH_GIVEN
+            in WalletService.get_or_create_wallet(
+                self.manager.employee, WalletType.CASH
+            ).transactions.values_list("category", flat=True)
+        )
+        self.assertEqual(
+            CashBookEntry.objects.get(category=CashEntryCategory.CASH_OUT).amount,
+            Decimal("5000"),
+        )
 
     def test_bank_transfer_without_account_rejected(self):
         transfer = self._add_field("Transfer Amount", "BANK_TRANSFER", required=True)

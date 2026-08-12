@@ -27,7 +27,7 @@
             <div class="card-body">
                 <div class="row small text-muted mb-3">
                     <div class="col-md-3">Customer</div>
-                    <div class="col-md-9 fw-semibold text-dark">{{ invoice.customer.full_name|default:"Walk-in Customer" }}</div>
+                    <div class="col-md-9 fw-semibold text-dark">{{ invoice.customer_display }}</div>
                     <div class="col-md-3">Date</div>
                     <div class="col-md-9 fw-semibold text-dark">{{ invoice.billed_on|date:"l, d F Y" }}</div>
                     <div class="col-md-3">Payment Mode</div>
@@ -52,6 +52,13 @@
                                     <td class="text-end">{{ line.unit_price|inr }}</td>
                                     <td class="text-end fw-semibold">{{ line.amount|inr }}</td>
                                 </tr>
+                                {% if line.withdrawal_summary %}
+                                <tr class="table-info">
+                                    <td colspan="4" class="ps-4 py-1 small fw-semibold">
+                                        <i class="bi bi-cash-coin me-1"></i>Withdrawal: {{ line.withdrawal_summary }}
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 {% if line.field_values.all %}
                                 <tr class="table-light">
                                     <td colspan="4" class="ps-4 py-1 small">
@@ -101,6 +108,7 @@
                         <tr>
                             <th scope="col">Date</th>
                             <th scope="col">Mode</th>
+                            <th scope="col">Bank / UPI</th>
                             <th scope="col" class="text-end">Amount</th>
                             <th scope="col">Notes</th>
                         </tr>
@@ -110,6 +118,7 @@
                             <tr>
                                 <td>{{ payment.payment_date|date:"d M Y" }}</td>
                                 <td>{{ payment.get_payment_mode_display }}</td>
+                                <td class="small text-muted">{{ payment.bank_account.account_name|default:"—" }}</td>
                                 <td class="text-end fw-semibold">{{ payment.amount|inr }}</td>
                                 <td class="small text-muted">{{ payment.notes|default:"—" }}</td>
                             </tr>
