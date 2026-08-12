@@ -9,24 +9,51 @@
                 <span class="user-avatar-lg mb-3">{{ wallet.employee.full_name|slice:":1"|upper }}</span>
                 <h5 class="fw-bold mb-1">{{ wallet.employee.full_name }}</h5>
                 <span class="badge text-bg-secondary mb-2">{{ wallet.employee.employee_code }}</span>
+                <div>
+                    <span class="badge text-bg-{% if wallet.wallet_type == 'CASH' %}success{% else %}info{% endif %} mb-2">
+                        {{ wallet.get_wallet_type_display }} Wallet
+                    </span>
+                    {% if other_wallet %}
+                        <a href="{% url 'employees:wallet_detail' other_wallet.pk %}" class="btn btn-sm btn-outline-secondary mb-2">
+                            <i class="bi bi-arrow-left-right me-1"></i>{{ other_wallet.get_wallet_type_display }}
+                        </a>
+                    {% endif %}
+                </div>
                 <h3 class="fw-bold text-primary mt-2 mb-0">{{ balance|inr }}</h3>
-                <span class="text-muted small">Current wallet balance</span>
+                <span class="text-muted small">Current {{ wallet.get_wallet_type_display|lower }} balance</span>
             </div>
         </div>
 
-        {% if credit_form or debit_form or transfer_form %}
+        {% if credit_form or debit_form or transfer_form or topup_form %}
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white">
                     <h6 class="mb-0 fw-semibold">Money Moves</h6>
                 </div>
                 <div class="card-body">
                     <ul class="nav nav-pills nav-fill small mb-3" id="walletTabs" role="tablist">
-                        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-credit">Top-up</button></li>
-                        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-debit">Withdraw</button></li>
+                        {% if topup_form %}<li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-topup">Owner Top-up</button></li>{% endif %}
+                        <li class="nav-item"><button class="nav-link {% if not topup_form %}active{% endif %}" data-bs-toggle="pill" data-bs-target="#tab-credit">Credit</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-debit">Debit</button></li>
                         <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-transfer">Transfer</button></li>
                     </ul>
                     <div class="tab-content">
-                        <div class="tab-pane fade show active" id="tab-credit">
+                        {% if topup_form %}
+                            <div class="tab-pane fade show active" id="tab-topup">
+                                <form method="post" novalidate>
+                                    {% csrf_token %}<input type="hidden" name="action" value="topup">
+                                    <p class="small text-muted">
+                                        Owner funding: {% if wallet.wallet_type == 'CASH' %}cash book me se cash
+                                        {% else %}selected bank account se money shop ke bank se kategi{% endif %}
+                                        aur staff wallet me add hogi.
+                                    </p>
+                                    {% include "includes/field.html" with field=topup_form.amount %}
+                                    {% include "includes/field.html" with field=topup_form.bank_account %}
+                                    {% include "includes/field.html" with field=topup_form.description %}
+                                    <button type="submit" class="btn btn-success w-100">Top-up</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                        <div class="tab-pane fade {% if not topup_form %}show active{% endif %}" id="tab-credit">
                             <form method="post" novalidate>
                                 {% csrf_token %}<input type="hidden" name="action" value="credit">
                                 {% include "includes/field.html" with field=credit_form.amount %}

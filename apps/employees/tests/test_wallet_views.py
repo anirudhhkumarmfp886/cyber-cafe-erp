@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.services.owner_bootstrap_service import OwnerBootstrapService
-from apps.employees.models import Role
+from apps.employees.models import Role, WalletType
 from apps.employees.services.employee_service import EmployeeService
 from apps.employees.services.role_service import assign_role_group
 from apps.employees.services.wallet_service import WalletService
@@ -45,27 +45,32 @@ class StaffModuleViewTests(TestCase):
         )
         self.client.login(username="manager", password="StrongPass#123")
 
+    def _cash_wallet(self, employee):
+        return WalletService.get_or_create_wallet(employee, WalletType.CASH)
+
     def test_wallet_list_shows_balance(self):
-        WalletService.credit(wallet=self.staff.wallet, amount=250, by=self.manager.user)
+        WalletService.credit(wallet=self._cash_wallet(self.staff), amount=250, by=self.manager.user)
         response = self.client.get(reverse("employees:wallet_list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "A Staffer")
         self.assertContains(response, "250.00")
 
     def test_wallet_detail_credit_action(self):
+        wallet = self._cash_wallet(self.staff)
         response = self.client.post(
-            reverse("employees:wallet_detail", kwargs={"pk": self.staff.wallet.pk}),
+            reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
             {"action": "credit", "amount": "750", "category": "CASH_TOPUP"},
         )
         self.assertRedirects(
             response,
-            reverse("employees:wallet_detail", kwargs={"pk": self.staff.wallet.pk}),
+            reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
         )
-        self.assertEqual(WalletService.balance_of(self.staff.wallet), 750)
+        self.assertEqual(WalletService.balance_of(wallet), 750)
 
     def test_wallet_detail_insufficient_debit_shows_error(self):
+        wallet = self._cash_wallet(self.staff)
         response = self.client.post(
-            reverse("employees:wallet_detail", kwargs={"pk": self.staff.wallet.pk}),
+            reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
             {"action": "debit", "amount": "99999", "category": "CASH_WITHDRAWAL"},
         )
         self.assertEqual(response.status_code, 200)
@@ -174,8 +179,9 @@ class PermissionEnforcementTests(TestCase):
             },
             by=self.boss,
         )
+        wallet = WalletService.get_or_create_wallet(staff_emp, WalletType.CASH)
         response = self.client.post(
-            reverse("employees:wallet_detail", kwargs={"pk": staff_emp.wallet.pk}),
+            reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
             {"action": "credit", "amount": "100", "category": "CASH_TOPUP"},
         )
         self.assertEqual(response.status_code, 403)

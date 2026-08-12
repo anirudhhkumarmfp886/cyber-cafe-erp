@@ -10,6 +10,7 @@ from apps.employees.models.wallet import (
     WalletTransaction,
     WalletTransactionCategory,
     WalletTransactionType,
+    WalletType,
 )
 from apps.employees.models.worklog import WorkLogEntry, WorkLogStatus
 
@@ -23,6 +24,7 @@ __all__ = [
     "WalletTransaction",
     "WalletTransactionType",
     "WalletTransactionCategory",
+    "WalletType",
     "WorkLogEntry",
     "WorkLogStatus",
 ]

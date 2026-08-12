@@ -22,13 +22,17 @@ from apps.employees.models import (
     WalletTransaction,
     WalletTransactionCategory,
     WalletTransactionType,
+    WalletType,
 )
+from apps.finance.models.enums import BankTransactionCategory, CashEntryCategory
+from apps.finance.services.bank_service import BankService
+from apps.finance.services.cashbook_service import CashBookService
 
 
 class WalletService:
     @staticmethod
-    def get_or_create_wallet(employee: Employee) -> Wallet:
-        wallet, _ = Wallet.objects.get_or_create(employee=employee)
+    def get_or_create_wallet(employee: Employee, wallet_type: str = WalletType.CASH) -> Wallet:
+        wallet, _ = Wallet.objects.get_or_create(employee=employee, wallet_type=wallet_type)
         return wallet
 
     @staticmethod
@@ -44,8 +48,63 @@ class WalletService:
         return total or 0
 
     @staticmethod
-    def balance_of_employee(employee: Employee):
-        return WalletService.balance_of(WalletService.get_or_create_wallet(employee))
+    def balance_of_employee(employee: Employee, wallet_type: str = WalletType.CASH):
+        return WalletService.balance_of(WalletService.get_or_create_wallet(employee, wallet_type))
+
+    @staticmethod
+    @transaction.atomic
+    def top_up(
+        *,
+        employee: Employee,
+        wallet_type: str,
+        amount,
+        bank_account=None,
+        description: str = "",
+        by=None,
+        entry_date=None,
+    ) -> WalletTransaction:
+        """Owner funds a staff wallet and mirrors it in the shop ledgers.
+
+        CASH top-up   -> staff CASH wallet +amount, shop cash book -amount
+                         (ADVANCE float given to staff).
+        ONLINE top-up -> staff ONLINE wallet +amount, shop bank account
+                         -amount (owner transfers the money out to staff).
+        """
+        wallet = WalletService.get_or_create_wallet(employee, wallet_type)
+        WalletService.credit(
+            wallet=wallet,
+            amount=amount,
+            category=WalletTransactionCategory.CASH_TOPUP,
+            description=description or f"Owner funding to {employee.full_name}",
+            source="Owner",
+            destination=employee.full_name,
+            by=by,
+            entry_date=entry_date,
+        )
+        if wallet_type == WalletType.CASH:
+            CashBookService.record_expense(
+                amount=amount,
+                category=CashEntryCategory.ADVANCE,
+                payment_mode="CASH",
+                party_name=employee.full_name,
+                description=f"Owner cash float given to {employee.full_name}",
+                entry_date=entry_date,
+                by=by,
+                staff=employee,
+            )
+        else:
+            if bank_account is None:
+                raise ValueError("ONLINE wallet top-up requires a bank account.")
+            BankService.withdraw(
+                account=bank_account,
+                amount=amount,
+                category=BankTransactionCategory.WITHDRAWAL,
+                party_name=employee.full_name,
+                description=f"Owner UPI float given to {employee.full_name}",
+                entry_date=entry_date,
+                by=by,
+            )
+        return WalletService.balance_of(wallet)
 
     @staticmethod
     @transaction.atomic
@@ -104,11 +163,12 @@ class WalletService:
         from_employee: Employee,
         to_employee: Employee,
         amount,
+        wallet_type: str = WalletType.CASH,
         description: str = "",
         by=None,
         entry_date=None,
     ):
-        """Move money between two employee wallets atomically.
+        """Move money between two employee wallets of the same type atomically.
 
         Returns (debit_transaction, credit_transaction) with their reference
         numbers cross-linked for the audit trail.
@@ -116,8 +176,8 @@ class WalletService:
         if from_employee.pk == to_employee.pk:
             raise ValueError("Cannot transfer to the same wallet.")
 
-        source_wallet = WalletService.get_or_create_wallet(from_employee)
-        target_wallet = WalletService.get_or_create_wallet(to_employee)
+        source_wallet = WalletService.get_or_create_wallet(from_employee, wallet_type)
+        target_wallet = WalletService.get_or_create_wallet(to_employee, wallet_type)
         entry_date = entry_date or date.today()
 
         debit_txn = WalletService._apply(

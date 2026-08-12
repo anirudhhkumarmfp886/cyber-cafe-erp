@@ -16,35 +16,42 @@
                 <tr>
                     <th scope="col">Employee</th>
                     <th scope="col">Role</th>
-                    <th scope="col" class="text-end">Balance</th>
+                    <th scope="col" class="text-end">Cash Wallet</th>
+                    <th scope="col" class="text-end">Online / UPI Wallet</th>
+                    <th scope="col" class="text-end">Total</th>
                     <th scope="col" class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {% for wallet in wallets %}
+                {% for row in rows %}
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="user-avatar-sm">{{ wallet.employee.full_name|slice:":1"|upper }}</span>
+                                <span class="user-avatar-sm">{{ row.employee.full_name|slice:":1"|upper }}</span>
                                 <div class="lh-sm">
-                                    <span class="d-block fw-semibold">{{ wallet.employee.full_name }}</span>
-                                    <span class="d-block small text-muted">{{ wallet.employee.employee_code }}</span>
+                                    <span class="d-block fw-semibold">{{ row.employee.full_name }}</span>
+                                    <span class="d-block small text-muted">{{ row.employee.employee_code }}</span>
                                 </div>
                             </div>
                         </td>
-                        <td><span class="badge text-bg-info">{{ wallet.employee.get_role_display }}</span></td>
-                        <td class="text-end fw-semibold {% if wallet.balance < 0 %}text-danger{% endif %}">{{ wallet.balance|inr }}</td>
+                        <td><span class="badge text-bg-info">{{ row.employee.get_role_display }}</span></td>
+                        <td class="text-end fw-semibold {% if row.cash_balance < 0 %}text-danger{% endif %}">{{ row.cash_balance|inr }}</td>
+                        <td class="text-end fw-semibold {% if row.online_balance < 0 %}text-danger{% endif %}">{{ row.online_balance|inr }}</td>
+                        <td class="text-end fw-semibold">{{ row.total_balance|inr }}</td>
                         <td class="text-end">
-                            <a href="{% url 'employees:wallet_detail' wallet.pk %}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-wallet2 me-1"></i>Ledger
+                            <a href="{% url 'employees:wallet_detail' row.cash_wallet.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-cash-coin me-1"></i>Cash
+                            </a>
+                            <a href="{% url 'employees:wallet_detail' row.online_wallet.pk %}" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-phone me-1"></i>Online
                             </a>
                         </td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="4" class="text-center text-muted py-5">
+                        <td colspan="6" class="text-center text-muted py-5">
                             <i class="bi bi-wallet2 fs-2 d-block mb-2"></i>
-                            No wallets yet. Add employees to create their wallets.
+                            No employees yet. Add employees to create their wallets.
                         </td>
                     </tr>
                 {% endfor %}
@@ -52,6 +59,4 @@
         </table>
     </div>
 </div>
-
-{% include "includes/pagination.html" %}
 {% endblock %}

@@ -8,22 +8,26 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import DetailView, ListView
 
-from apps.employees.forms.wallet import WalletCreditForm, WalletDebitForm, WalletTransferForm
-from apps.employees.models import Wallet
+from apps.employees.forms.wallet import (
+    WalletCreditForm,
+    WalletDebitForm,
+    WalletTopUpForm,
+    WalletTransferForm,
+)
+from apps.employees.models import Wallet, WalletType
 from apps.employees.selectors.wallet_selector import WalletSelector
 from apps.employees.services.wallet_service import WalletService
 
 
 class WalletListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
-    """All employee wallets with their derived balances."""
+    """All employees with their CASH + ONLINE wallet balances."""
 
     permission_required = "employees.view_wallettransaction"
     template_name = "employees/wallet_list.html"
-    context_object_name = "wallets"
-    paginate_by = 25
+    context_object_name = "rows"
 
     def get_queryset(self):
-        return WalletSelector.list_with_employees()
+        return WalletSelector.list_employees_with_wallets()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -33,7 +37,7 @@ class WalletListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
 
 class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
-    """A single wallet: ledger + credit / debit / transfer actions."""
+    """A single wallet (CASH or ONLINE): ledger + credit / debit / top-up."""
 
     permission_required = "employees.view_wallettransaction"
     template_name = "employees/wallet_detail.html"
@@ -42,15 +46,23 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     def get_object(self, queryset=None):
         return get_object_or_404(Wallet, id=self.kwargs["pk"])
 
+    def _other_wallet(self, wallet):
+        return WalletSelector.get_by_employee(
+            wallet.employee,
+            WalletType.ONLINE if wallet.wallet_type == WalletType.CASH else WalletType.CASH,
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         wallet = self.object
-        context["page_title"] = f"Wallet · {wallet.employee.full_name}"
+        context["page_title"] = f"{wallet.get_wallet_type_display()} Wallet · {wallet.employee.full_name}"
         context["balance"] = WalletService.balance_of(wallet)
         context["transactions"] = WalletSelector.transactions(wallet, limit=150)
+        context["other_wallet"] = self._other_wallet(wallet)
         if self.request.user.has_perm("employees.add_wallettransaction"):
             context["credit_form"] = WalletCreditForm()
             context["debit_form"] = WalletDebitForm()
+            context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
             context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
         return context
 
@@ -62,7 +74,26 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         action = request.POST.get("action")
         form = None
         try:
-            if action == "credit":
+            if action == "topup":
+                form = WalletTopUpForm(request.POST, wallet_type=wallet.wallet_type)
+                if form.is_valid():
+                    data = form.cleaned_data
+                    WalletService.top_up(
+                        employee=wallet.employee,
+                        wallet_type=wallet.wallet_type,
+                        amount=data["amount"],
+                        bank_account=data.get("bank_account"),
+                        description=data.get("description", ""),
+                        by=request.user,
+                    )
+                    messages.success(
+                        request,
+                        f"Topped up ₹{data['amount']} to {wallet.employee.full_name}'s "
+                        f"{wallet.get_wallet_type_display()} wallet.",
+                    )
+                else:
+                    return self._form_error(request, wallet, "topup", form)
+            elif action == "credit":
                 form = WalletCreditForm(request.POST)
                 if form.is_valid():
                     data = form.cleaned_data
@@ -100,6 +131,7 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                         from_employee=wallet.employee,
                         to_employee=data["to_employee"],
                         amount=data["amount"],
+                        wallet_type=wallet.wallet_type,
                         description=data.get("description", ""),
                         by=request.user,
                     )
@@ -119,15 +151,23 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         """Re-render the detail page with the offending form bound and errors shown."""
         self.object = wallet
         context = self.get_context_data()
-        if action == "credit":
+        if action == "topup":
+            context["topup_form"] = form
+            context["credit_form"] = WalletCreditForm()
+            context["debit_form"] = WalletDebitForm()
+            context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
+        elif action == "credit":
+            context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
             context["credit_form"] = form
             context["debit_form"] = WalletDebitForm()
             context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
         elif action == "debit":
+            context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
             context["credit_form"] = WalletCreditForm()
             context["debit_form"] = form
             context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
         else:
+            context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
             context["credit_form"] = WalletCreditForm()
             context["debit_form"] = WalletDebitForm()
             context["transfer_form"] = form

@@ -92,6 +92,9 @@ class Employee(BaseModel):
     def __str__(self):
         return f"{self.employee_code} - {self.full_name}"
 
+    def get_full_name(self) -> str:
+        return self.full_name
+
     @property
     def is_supervisor(self) -> bool:
         """Owner and Manager share elevated responsibilities."""
