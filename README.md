@@ -10,9 +10,16 @@ Reporting and Audit — built on Django.
 > Permissions, Employees, Wallet Engine, Cash Book, Bank Ledger,
 > Customers, Services, Daily Work Log, Billing (invoices, credit,
 > cash-out / E-Sathi), Reports + Analytics with CSV export. **Plus**:
-> free-form service categories and role-gated custom fields per service
-> (e.g. cash withdrawal amount, commission %, and an auto bank deposit
-> into a chosen account when billed).
+> free-form service categories and role-gated custom fields per service.
+> **Phase 1**: per-staff cash books (income/expense split by permission,
+> owner withdrawal/deposit, today + as-on-date balances), expense entries
+> with mode & staff attribution, and one-click customer add on the billing
+> screen. **Phase 2 (2-wallet + split payment)**: every staff member has a
+> CASH and an ONLINE/UPI wallet (owner tops up each separately, mirrored
+> in the shop cash book / bank), bills can be split across cash + UPI/bank
+> payments (each leg books its own ledger + staff wallet), and a
+> cash-withdrawal line (transfer + commission + bank account fields) books
+> the staff cash-out, commission income and bank deposit automatically.
 
 ---
 
@@ -63,6 +70,8 @@ apps/
 | 3      | Customers, Services, Daily Work Log | Done |
 | 4      | Billing, Dashboard, Reports, Analytics | Done |
 | 4.1    | Service categories (define your own) + custom fields per service (role-based, auto bank deposit) | **Done** (this session) |
+| 4.2    | Per-staff cash books (income/expense by permission, owner cash, today/as-on balance), expense add with mode+staff, quick customer add on billing | **Done** (this session) |
+| 4.3    | 2-wallet staff model (CASH + ONLINE/UPI, owner top-up mirrored to cash book/bank), split-payment billing (cash + UPI legs each auto-ledgered), cash-withdrawal line auto-ledger (staff cash-out, commission income, bank deposit) | **Done** (this session) |
 | 5      | Inventory | Next |
 
 ---

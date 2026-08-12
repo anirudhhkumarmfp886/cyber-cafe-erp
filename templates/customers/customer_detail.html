@@ -39,8 +39,45 @@
                     <span class="text-muted">Credit limit</span>
                     <h5 class="fw-bold mb-0">{{ customer.credit_limit|inr }}</h5>
                 </div>
+                <hr>
+                <div class="text-start small">
+                    <span class="text-muted">Pre-paid credit balance</span>
+                    <h5 class="fw-bold mb-0 text-{% if customer.credit_balance %}success{% else %}muted{% endif %}">{{ customer.credit_balance|inr }}</h5>
+                </div>
             </div>
         </div>
+        {% if credit_form %}
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-wallet2 me-2 text-primary"></i>Adjust Credit</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'customers:credit_deposit' customer.pk %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Direction</label>
+                            {{ credit_form.direction }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Amount</label>
+                            {{ credit_form.amount }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Note</label>
+                            {{ credit_form.description }}
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary w-100">
+                            <i class="bi bi-check2-circle me-1"></i>Adjust Credit
+                        </button>
+                        <div class="form-text mt-2">
+                            Deposit = customer pre-pays the shop (books Other Income).
+                            Refund = shop returns money (books expense). Used by the
+                            Work Entry "Customer Credit" payment mode.
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
     </div>
     <div class="col-lg-8">
         <div class="card shadow-sm border-0">

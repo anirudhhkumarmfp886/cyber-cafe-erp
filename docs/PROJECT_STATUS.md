@@ -102,6 +102,81 @@ Tests: full suite passes. Ruff lint clean. All migrations applied.
    role gating, required/type validation, auto-deposit, permission 403s,
    JSON endpoint, category filter).
 
+### Sprint 4 follow-up (Phase 1) — expense add + per-staff cash book + quick customer (this session)
+The owner's requested feature list (billing add-on items, expense entry,
+cash book rework) started landing here:
+1. **Expense add with mode + staff** — a manual expense entry now carries
+   the responsible staff member. `CashBookEntry.staff` (FK, soft) is set
+   automatically from the logged-in user's employee profile (or passed
+   explicitly to the service). Every expense shows up in that staff's own
+   cash book, so "kis staff ne kya kharcha kiya" is answerable per staff.
+2. **Per-staff cash books + shop combined view** — the Cash Book page is
+   now scoped. Staff / cashier / counter users see **only their own
+   entries**; Owner / Manager / Accountant see the whole shop and can
+   filter by any staff member from a dropdown. All summary numbers
+   (balance, in, out, today, as-on-date) follow the selected scope.
+3. **Today + balance-as-on-date cards** — new summary strip shows Today
+   In / Today Out / Today Balance, an "as on <date>" balance picker
+   (`?as_on=YYYY-MM-DD`), and all-time totals. Auto income from billing
+   still feeds the book through `CashBookService.record_income`.
+4. **Owner Withdrawal / Deposit** — dedicated Owner Cash card (permission
+   `finance.withdraw_shop_cash`, Owner/Manager/Accountant only). Withdraw
+   books `OWNER_WITHDRAWAL` (expense), deposit books `OWNER_DEPOSIT`
+   (income) — the owner's money movements are traceable in the ledger.
+5. **Income-only / expense-only permission split** — manual cash book
+   entry rights are now granular: `add_cashbookincome` /
+   `add_cashbookexpense`. Cashier & Counter Staff can record income only;
+   Staff get none; Owner/Manager/Accountant can record both. The form only
+   shows the entry types the user is allowed to save.
+6. **Quick customer add on billing** — the billing screen has a "Customer
+   name (new)" field. If the user has `customers.add_customer`, a checkbox
+   saves it as a real `Customer` row and links the invoice. Without the
+   permission the name is still kept as a snapshot on the invoice
+   (`Invoice.customer_name`), so walk-in bills carry the customer's name
+   and are searchable — no DB customer record is created. Credit bills
+   still require a registered customer.
+7. **Permissions & roles** — `seed_roles` updated (Owner 67 / Manager 64 /
+   Accountant 46 / Cashier 21 / Counter Staff 21 / Staff 16) with the new
+   cash book custom permissions; re-run against the live DB.
+8. Tests: +29 new Phase-1 tests (per-staff scoping, owner cash, permission
+   gating, quick customer creation/name-snapshot/403 handling, form type
+   restriction, staff-scoped as-on balance).
+
+### Sprint 4 follow-up (Phase 2) — 2-wallet model + split-payment billing (this session)
+The owner's 2-wallet example (1000 cash given / 1040 UPI paid / 40 charge)
+now works end-to-end through the billing screen:
+
+1. **Two wallets per staff** — each employee has a CASH and an ONLINE/UPI
+   wallet (`Wallet.wallet_type`, unique per employee+type). Owner top-up
+   mirrors into the shop ledgers: CASH float books a cash-book `ADVANCE`
+   expense, ONLINE float books a bank withdrawal — staff floats stay
+   traceable shop-side. (Replaces the earlier 1-wallet-with-category idea.)
+2. **Split-payment billing** — the New Bill card now has a Split Payment
+   section: repeatable cash / UPI / card / bank rows, each with an amount
+   and (for non-cash) a shop bank account. Amounts must sum to the bill
+   total; blank rows are ignored; a partial sum flips the invoice to
+   PARTIAL (requires a customer), a zero sum to credit/UNPAID.
+3. **Per-leg auto-ledger** — every payment books atomically with the
+   invoice: cash legs book Cash Book `SALES` income + credit the billing
+   staff's CASH wallet; UPI/bank legs deposit `PAYMENT_RECEIVED` into the
+   chosen bank account + credit the staff's ONLINE wallet. Each leg is
+   linked (`InvoicePayment.cash_entry` / `.bank_transaction`) so a void
+   reverses both ledgers.
+4. **Cash-withdrawal line auto-ledger** — a line whose custom fields include
+   a `BANK_TRANSFER` + `BANK_ACCOUNT` pair (and optional `PERCENT`
+   commission) becomes a withdrawal line. Its amount becomes the transfer
+   value (e.g. `1000 + 4% = 1040`), the billing staff's CASH wallet is
+   debited the cash handed out, `COMMISSION` income and the `CASH_OUT`
+   expense hit the Cash Book, and the UPI payment (bank account defaults to
+   the withdrawal line's) covers the bank side. The bill detail shows the
+   breakdown (e.g. `1000 + 4% = 1040`) under the line.
+5. **UI** — wallet list shows Cash + Online columns per employee; wallet
+   detail has an Owner Top-up tab (bank account required for ONLINE);
+   invoice detail lists each payment with its bank/UPI account.
+6. Tests: wallet service/views updated for the FK wallet model; new split
+   payment + withdrawal auto-ledger tests (full scenario, partial/credit
+   rules, void reversal of bank deposits). Full suite green.
+
 ### Sprint 3 deliverables (built last session)
 1. **Customers** (`apps/customers/`) — profiles only (decision: wallets stay
    employee-only). `Customer` model (full_name, phone unique, email,
@@ -215,6 +290,17 @@ Report API (`apps/reports/services/report_service.py`): `profit_loss`,
   entries allowed); wage is snapshot-based, no attendance clocking.
 - Printing/colour/online-form-fill billing is catalog `Service` line
   items — no dedicated billing code, by design.
+- **P&L currently reads only the Cash Book.** Since UPI/bank sales now
+  deposit into the bank ledger (not the cash book), the Profit & Loss
+  report under-states income from UPI/card/bank payments and from
+  withdrawal transfer-in. Recommended follow-up: fold bank `PAYMENT_RECEIVED`
+  into P&L income while excluding withdrawal/cash-out principal (the
+  commission entry already carries the P&L income for those), and mirror
+  staff ONLINE-float top-ups as bank expense.
+- `settle_invoice` still books settlements into the Cash Book only (no
+  staff-wallet credit / bank deposit for UPI settlements). Full split
+  settlements were left out of scope this session; the create-bill path
+  carries the wallet + bank auto-ledger.
 
 ---
 

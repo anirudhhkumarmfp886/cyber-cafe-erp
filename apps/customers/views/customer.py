@@ -12,7 +12,7 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DetailView, ListView, UpdateView
 
-from apps.customers.forms.customer import CustomerForm
+from apps.customers.forms.customer import CreditDepositForm, CustomerForm
 from apps.customers.models import Customer
 from apps.customers.selectors.customer_selector import CustomerSelector
 from apps.customers.services.customer_service import CustomerService
@@ -70,7 +70,43 @@ class CustomerDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["page_title"] = self.object.full_name
+        if self.request.user.has_perm("customers.change_customer"):
+            context["credit_form"] = CreditDepositForm()
         return context
+
+
+class CustomerCreditDepositView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    """Deposit into / refund a customer's pre-paid credit balance."""
+    permission_required = "customers.change_customer"
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        customer = get_object_or_404(Customer, id=pk)
+        form = CreditDepositForm(request.POST)
+        if form.is_valid():
+            amount = form.cleaned_data["amount"]
+            if form.cleaned_data["direction"] == "REFUND":
+                amount = -amount
+            try:
+                CustomerService.adjust_credit(
+                    customer=customer,
+                    amount=amount,
+                    description=form.cleaned_data.get("description", ""),
+                    by=request.user,
+                )
+            except ValueError as exc:
+                messages.error(request, str(exc))
+            else:
+                customer.refresh_from_db()
+                verb = "deposited" if amount > 0 else "refunded"
+                messages.success(
+                    request,
+                    f"₹{abs(amount)} {verb} for {customer.full_name}. "
+                    f"New credit balance: ₹{customer.credit_balance}.",
+                )
+        else:
+            messages.error(request, "Enter a valid amount.")
+        return HttpResponseRedirect(reverse_lazy("customers:detail", kwargs={"pk": customer.pk}))
 
 
 class CustomerUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):

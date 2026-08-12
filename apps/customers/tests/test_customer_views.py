@@ -5,6 +5,8 @@ from django.urls import reverse
 
 from apps.customers.models import Customer
 from apps.customers.services.customer_service import CustomerService
+from apps.finance.models import CashBookEntry
+from apps.finance.models.enums import CashEntryCategory
 
 User = get_user_model()
 
@@ -44,6 +46,39 @@ class CustomerViewTests(TestCase):
         customer = CustomerService.create_customer(data={"full_name": "Ravi"}, by=self.boss)
         self.client.post(reverse("customers:deactivate", kwargs={"pk": customer.pk}))
         self.assertFalse(Customer.objects.filter(pk=customer.pk).exists())
+
+    def test_credit_deposit_books_balance_and_other_income(self):
+        customer = CustomerService.create_customer(data={"full_name": "Ravi"}, by=self.boss)
+        self.client.post(
+            reverse("customers:credit_deposit", kwargs={"pk": customer.pk}),
+            {"direction": "DEPOSIT", "amount": "250", "description": "advance"},
+        )
+        customer.refresh_from_db()
+        self.assertEqual(customer.credit_balance, 250)
+        income = CashBookEntry.objects.get(category=CashEntryCategory.OTHER_INCOME)
+        self.assertEqual(income.amount, 250)
+
+    def test_credit_refund_reduces_balance_and_books_expense(self):
+        customer = CustomerService.create_customer(data={"full_name": "Ravi"}, by=self.boss)
+        CustomerService.adjust_credit(customer=customer, amount=200, by=self.boss)
+        self.client.post(
+            reverse("customers:credit_deposit", kwargs={"pk": customer.pk}),
+            {"direction": "REFUND", "amount": "50", "description": ""},
+        )
+        customer.refresh_from_db()
+        self.assertEqual(customer.credit_balance, 150)
+        expense = CashBookEntry.objects.get(category=CashEntryCategory.MISC)
+        self.assertEqual(expense.amount, 50)
+
+    def test_credit_refund_beyond_balance_rejected(self):
+        customer = CustomerService.create_customer(data={"full_name": "Ravi"}, by=self.boss)
+        self.client.post(
+            reverse("customers:credit_deposit", kwargs={"pk": customer.pk}),
+            {"direction": "REFUND", "amount": "500", "description": ""},
+        )
+        customer.refresh_from_db()
+        self.assertEqual(customer.credit_balance, 0)
+        self.assertFalse(CashBookEntry.objects.filter(category=CashEntryCategory.MISC).exists())
 
 
 class CustomerPermissionTests(TestCase):

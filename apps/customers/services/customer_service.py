@@ -4,7 +4,13 @@ CustomerService — the only place customer records are created or changed.
 Keeps the web layer thin and guarantees every entry point (forms, admin,
 future API) applies the same rules.
 """
+from decimal import Decimal
+
+from django.db import transaction
+
 from apps.customers.models import Customer
+from apps.finance.models.enums import CashEntryCategory
+from apps.finance.services.cashbook_service import CashBookService
 
 _EDITABLE_FIELDS = (
     "full_name",
@@ -80,3 +86,47 @@ class CustomerService:
     @staticmethod
     def restore_customer(customer: Customer, *, by=None) -> Customer:
         return customer.restore(by=by)
+
+    @staticmethod
+    @transaction.atomic
+    def adjust_credit(*, customer: Customer, amount, description: str = "", by=None) -> Customer:
+        """Change the customer's pre-paid credit balance.
+
+        ``amount > 0`` is a deposit (cash book OTHER_INCOME entry booked);
+        ``amount < 0`` is a refund. Used for the CUSTOMER_CREDIT payment mode
+        on work entries — the balance is drawn down there by the work entry
+        service, not here.
+        """
+        amount = Decimal(str(amount or 0))
+        if amount == 0:
+            raise ValueError("Credit amount must not be zero.")
+
+        customer = Customer.objects.select_for_update().get(pk=customer.pk)
+        new_balance = customer.credit_balance + amount
+        if new_balance < 0:
+            raise ValueError("Refund exceeds the customer's current credit balance.")
+
+        party = customer.full_name
+        if amount > 0:
+            CashBookService.record_income(
+                amount=amount,
+                category=CashEntryCategory.OTHER_INCOME,
+                payment_mode="CASH",
+                party_name=party,
+                description=description or f"Customer credit deposit for {party}",
+                by=by,
+            )
+        else:
+            CashBookService.record_expense(
+                amount=-amount,
+                category=CashEntryCategory.MISC,
+                payment_mode="CASH",
+                party_name=party,
+                description=description or f"Customer credit refund for {party}",
+                by=by,
+            )
+
+        customer.credit_balance = new_balance
+        customer.updated_by = by
+        customer.save(update_fields=["credit_balance", "updated_by", "updated_at"])
+        return customer

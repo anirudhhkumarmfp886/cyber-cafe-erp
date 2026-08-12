@@ -24,6 +24,9 @@ class Customer(BaseModel):
 
     #: Accounting-only control: how much the cafe is willing to extend on credit.
     credit_limit = money_field(default=0, blank=True)
+    #: Pre-paid balance the customer has deposited with the shop. Work entries
+    #: paid via CUSTOMER_CREDIT settle against this balance first.
+    credit_balance = money_field(default=0, blank=True)
     notes = models.TextField(blank=True)
 
     class Meta:

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>Work Entry / Counter</h5>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            <select name="status" class="form-select form-select-sm">
+                <option value="">All statuses</option>
+                {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            {% if is_manager %}
+                <select name="staff" class="form-select form-select-sm">
+                    <option value="">All staff</option>
+                    {% for employee in staff_options %}
+                        <option value="{{ employee.pk }}" {% if request.GET.staff == employee.pk|stringformat:"s" %}selected{% endif %}>{{ employee.full_name }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+            <input type="date" name="from_date" class="form-control form-control-sm" value="{{ request.GET.from_date }}">
+            <input type="date" name="to_date" class="form-control form-control-sm" value="{{ request.GET.to_date }}">
+            <input type="text" name="q" class="form-control form-control-sm" placeholder="Customer / number" value="{{ request.GET.q }}">
+            <button class="btn btn-sm btn-outline-primary">Filter</button>
+            <a href="{% url 'workentry:list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </form>
+        <span class="badge text-bg-success fs-6">Income: {{ totals.income|inr }}</span>
+        <span class="badge text-bg-primary fs-6">Billed: {{ totals.billed|inr }}</span>
+    </div>
+</div>
+
+{% if workentry_form %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>New Work Entry (Draft)</h6>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {% if workentry_form.non_field_errors %}
+                    <div class="col-12 mb-3">
+                        {% for error in workentry_form.non_field_errors %}
+                            <div class="alert alert-danger mb-0">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="row g-3">
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.entry_date %}</div>
+                    <div class="col-md-3">{% include "includes/field.html" with field=workentry_form.customer %}</div>
+                    <div class="col-md-3">{% include "includes/field.html" with field=workentry_form.customer_name %}</div>
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.service %}</div>
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.page_quantity %}</div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.charged_amount %}</div>
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.payment_mode %}</div>
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.credit_rest_mode %}</div>
+                    <div class="col-md-3">{% include "includes/field.html" with field=workentry_form.bank_account %}</div>
+                    <div class="col-md-3">{% include "includes/field.html" with field=workentry_form.notes %}</div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.transfer_to_customer %}</div>
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.transfer_on_behalf %}</div>
+                    <div class="col-md-2">{% include "includes/field.html" with field=workentry_form.cash_withdrawal %}</div>
+                    <div class="col-md-6 d-flex align-items-end mb-3">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-file-earmark-plus me-1"></i>Create Draft</button>
+                        <span class="small text-muted ms-3">Then open it and press <strong>Save Bill</strong> to book ledgers.</span>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Reference</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Staff</th>
+                    <th scope="col">Customer</th>
+                    <th scope="col">Service</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="text-end">Income</th>
+                    <th scope="col" class="text-end">Total</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                    <tr>
+                        <td class="fw-semibold">{{ entry.reference_number }}</td>
+                        <td>{{ entry.entry_date|date:"d M Y" }}</td>
+                        <td>{{ entry.employee.full_name }}</td>
+                        <td>{{ entry.customer_display }}</td>
+                        <td>{{ entry.service.name }}</td>
+                        <td>
+                            {% if entry.status == "SAVED" %}
+                                <span class="badge text-bg-success">Saved</span>
+                            {% else %}
+                                <span class="badge text-bg-warning">Draft</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ entry.income|inr }}</td>
+                        <td class="text-end">{{ entry.total_amount|inr }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'workentry:bill' entry.pk %}" class="btn btn-sm btn-outline-primary">
+                                {% if entry.status == "DRAFT" %}<i class="bi bi-receipt me-1"></i>Bill{% else %}<i class="bi bi-eye me-1"></i>View{% endif %}
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            <i class="bi bi-pencil-square fs-2 d-block mb-2"></i>
+                            No work entries yet. Create your first draft above.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}
