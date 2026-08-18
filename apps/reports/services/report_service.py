@@ -17,7 +17,7 @@ from django.db.models import Case, Count, F, Sum, When
 from django.db.models.functions import Coalesce, TruncHour
 from django.http import HttpResponse
 
-from apps.billing.models import Invoice, InvoiceLine
+from apps.billing.models import Invoice, InvoiceLine, InvoicePayment
 from apps.employees.models import Employee, WalletTransaction, WorkLogEntry, WorkLogStatus
 from apps.finance.models import CashBookEntry, BankAccount
 from apps.finance.models.enums import CashEntryCategory, CashEntryType
@@ -35,14 +35,48 @@ def csv_response(filename: str, headers: list, rows: list) -> HttpResponse:
 
 class ReportService:
     @staticmethod
+    def _billing_income_total(from_date, to_date) -> Decimal:
+        """Authoritative billing income: line income on active invoices billed
+        in range, across every payment mode (cash / UPI / card / bank /
+        customer wallet). This is the P&L income source — pass-through money
+        (the difference between a line's ``amount`` and ``income_amount``) is
+        deliberately excluded.
+        """
+        return (
+            InvoiceLine.objects.filter(
+                invoice__is_active=True,
+                invoice__billed_on__gte=from_date,
+                invoice__billed_on__lte=to_date,
+            ).aggregate(total=Coalesce(Sum("income_amount"), Decimal("0")))["total"]
+            or Decimal("0")
+        )
+
+    @staticmethod
+    def _linked_cash_entry_ids() -> set:
+        """Cash Book income entry ids that billing created (so the P&L counts
+        them once, through ``InvoiceLine.income_amount``, instead of again
+        through the cash book)."""
+        ids = set()
+        ids.update(Invoice.objects.exclude(cash_entry_id=None).values_list("cash_entry_id", flat=True))
+        ids.update(InvoicePayment.objects.exclude(cash_entry_id=None).values_list("cash_entry_id", flat=True))
+        ids.update(InvoiceLine.objects.exclude(cash_entry_id=None).values_list("cash_entry_id", flat=True))
+        return ids
+
+    @staticmethod
     def _income_expense_breakdown(from_date, to_date):
         entries = CashBookEntry.objects.filter(entry_date__gte=from_date, entry_date__lte=to_date)
-        income_rows = (
-            entries.filter(entry_type=CashEntryType.INCOME)
-            .values("category")
+        linked = ReportService._linked_cash_entry_ids()
+        income_qs = entries.filter(entry_type=CashEntryType.INCOME)
+        if linked:
+            income_qs = income_qs.exclude(id__in=linked)
+        income_rows = list(
+            income_qs.values("category")
             .annotate(total=Coalesce(Sum("amount"), Decimal("0")))
             .order_by("-total")
         )
+        billing_income = ReportService._billing_income_total(from_date, to_date)
+        if billing_income:
+            income_rows.insert(0, {"category": "Billing income (all modes)", "total": billing_income})
         expense_rows = (
             entries.filter(entry_type=CashEntryType.EXPENSE)
             .values("category")
@@ -50,6 +84,13 @@ class ReportService:
             .order_by("-total")
         )
         return income_rows, expense_rows
+
+    @staticmethod
+    def income_total(from_date, to_date) -> Decimal:
+        """Total income for a date range (billing income + non-billing cash
+        book income). Used by the dashboard's ``today_income`` stat."""
+        income_rows, _ = ReportService._income_expense_breakdown(from_date, to_date)
+        return sum(Decimal(row["total"]) for row in income_rows)
 
     @staticmethod
     def profit_loss(from_date, to_date):

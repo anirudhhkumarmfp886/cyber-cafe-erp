@@ -1,4 +1,6 @@
 """Tests for the reports app (HTML pages + CSV export)."""
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
@@ -10,6 +12,7 @@ from apps.employees.services.employee_service import EmployeeService
 from apps.employees.services.worklog_service import WorkLogService
 from apps.finance.services.bank_service import BankService
 from apps.finance.services.cashbook_service import CashBookService
+from apps.reports.services.report_service import ReportService
 from apps.services.services.service_service import ServiceService
 
 User = get_user_model()
@@ -128,3 +131,89 @@ class ReportViewTests(TestCase):
         for name in ("profit_loss", "bank_statement", "customer_ledger", "wallet_statement", "salary_summary", "analytics"):
             response = self.client.get(reverse(f"reports:{name}"))
             self.assertEqual(response.status_code, 302)
+
+
+class ProfitLossIncomeTests(TestCase):
+    """P&L income uses InvoiceLine.income_amount and de-dupes linked cash entries."""
+
+    def setUp(self):
+        call_command("seed_roles")
+        self.boss = User.objects.create_superuser(username="pl-boss", password="OwnerPass#123")
+        self.client.login(username="pl-boss", password="OwnerPass#123")
+        self.gaming = ServiceService.create_service(data={"name": "Gaming", "price": 100}, by=self.boss)
+        self.printing = ServiceService.create_service(data={"name": "Printing", "price": 5}, by=self.boss)
+        self.customer = CustomerService.create_customer(
+            data={"full_name": "PL Customer", "phone": "9999000088", "credit_limit": 1000},
+            by=self.boss,
+        )
+        self.account = BankService.create_account(
+            account_name="HDFC", bank_name="HDFC", account_number="5020000001", by=self.boss
+        )
+
+    def test_income_total_sums_line_income(self):
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": 0},
+            lines=[(self.gaming, 1), (self.printing, 2)],
+            by=self.boss,
+        )
+        self.assertEqual(ReportService.income_total("2020-01-01", "2030-01-01"), Decimal("110.00"))
+        self.assertEqual(invoice.income_amount, Decimal("110.00"))
+
+    def test_income_total_ignores_pass_through(self):
+        service = ServiceService.create_service(
+            data={"name": "Transfer", "price": 10, "passthrough_type": "ONLINE", "total_formula": "cash + pct", "income_formula": "cash * pct / 100"},
+            by=self.boss,
+        )
+        cash = ServiceService.create_custom_field(
+            service, data={"label": "Cash", "variable_name": "cash", "field_type": "NUMBER", "required": True}, by=self.boss
+        )
+        pct = ServiceService.create_custom_field(
+            service, data={"label": "Pct", "variable_name": "pct", "field_type": "PERCENT", "required": True}, by=self.boss
+        )
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": 0},
+            lines=[{"service": service, "qty": 1, "custom": {str(cash.pk): "1000", str(pct.pk): "2"}}],
+            by=self.boss,
+        )
+        self.assertEqual(invoice.total, Decimal("1002.00"))
+        self.assertEqual(ReportService.income_total("2020-01-01", "2030-01-01"), Decimal("20.00"))
+
+    def test_income_total_ignores_voided_invoices(self):
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": 0},
+            lines=[(self.gaming, 1)],
+            by=self.boss,
+        )
+        BillingService.soft_delete_invoice(invoice=invoice, by=self.boss)
+        self.assertEqual(ReportService.income_total("2020-01-01", "2030-01-01"), Decimal("0.00"))
+
+    def test_income_total_respects_date_range(self):
+        BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": 0},
+            lines=[(self.gaming, 1)],
+            by=self.boss,
+        )
+        self.assertEqual(ReportService.income_total("2000-01-01", "2000-12-31"), Decimal("0.00"))
+
+    def test_cash_book_income_not_double_counted(self):
+        BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": 0},
+            lines=[(self.gaming, 1)],
+            by=self.boss,
+        )
+        total = ReportService.income_total("2020-01-01", "2030-01-01")
+        self.assertEqual(total, Decimal("100.00"))
+        report = ReportService.profit_loss("2020-01-01", "2030-01-01")
+        income_rows = report["income"]
+        self.assertEqual(income_rows[0]["category"], "Billing income (all modes)")
+        self.assertEqual(income_rows[0]["total"], Decimal("100.00"))
+
+    def test_profit_loss_uses_billing_income_row(self):
+        BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": 0},
+            lines=[(self.gaming, 1)],
+            by=self.boss,
+        )
+        response = self.client.get(reverse("reports:profit_loss"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Billing income (all modes)")

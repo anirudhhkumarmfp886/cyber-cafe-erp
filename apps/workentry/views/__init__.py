@@ -1,3 +1,5 @@
-from apps.workentry.views.workentry import WorkEntryBillView, WorkEntryListView
+"""WorkEntry view package.
 
-__all__ = ["WorkEntryListView", "WorkEntryBillView"]
+The counter views were retired in Sprint 4.5 (see ``views.workentry`` for the
+rationale). No view classes are exported any more.
+"""

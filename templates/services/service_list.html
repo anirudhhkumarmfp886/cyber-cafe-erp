@@ -34,10 +34,13 @@
                 <div class="col-md-3">{% include "includes/field.html" with field=service_form.new_category %}</div>
                 <div class="col-md-3">{% include "includes/field.html" with field=service_form.unit %}</div>
                 <div class="col-md-2">{% include "includes/field.html" with field=service_form.price %}</div>
-                <div class="col-md-2 d-flex align-items-end">
+                <div class="col-md-3">{% include "includes/field.html" with field=service_form.passthrough_type %}</div>
+                <div class="col-md-5">{% include "includes/field.html" with field=service_form.total_formula %}</div>
+                <div class="col-md-4">{% include "includes/field.html" with field=service_form.income_formula %}</div>
+                <div class="col-md-3 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus me-1"></i>Save</button>
                 </div>
-                <div class="col-md-8">{% include "includes/field.html" with field=service_form.description %}</div>
+                <div class="col-md-9">{% include "includes/field.html" with field=service_form.description %}</div>
             </form>
         </div>
     </div>

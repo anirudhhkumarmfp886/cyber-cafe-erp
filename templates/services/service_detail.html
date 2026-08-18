@@ -53,6 +53,9 @@
                         <div class="col-12">{% include "includes/field.html" with field=service_form.new_category %}</div>
                         <div class="col-6">{% include "includes/field.html" with field=service_form.unit %}</div>
                         <div class="col-6">{% include "includes/field.html" with field=service_form.price %}</div>
+                        <div class="col-12">{% include "includes/field.html" with field=service_form.passthrough_type %}</div>
+                        <div class="col-12">{% include "includes/field.html" with field=service_form.total_formula %}</div>
+                        <div class="col-12">{% include "includes/field.html" with field=service_form.income_formula %}</div>
                         <div class="col-12">{% include "includes/field.html" with field=service_form.description %}</div>
                         <div class="col-12">
                             <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check2-circle me-1"></i>Update Service</button>
@@ -76,9 +79,9 @@
                         <thead class="table-light">
                             <tr>
                                 <th scope="col">Label</th>
+                                <th scope="col">Variable</th>
                                 <th scope="col">Type</th>
                                 <th scope="col">Required</th>
-                                <th scope="col">Allowed roles</th>
                                 <th scope="col" class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -89,15 +92,9 @@
                                         {{ field.label }}
                                         {% if field.help_text %}<div class="small text-muted">{{ field.help_text }}</div>{% endif %}
                                     </td>
+                                    <td><code class="small">{{ field.variable_name|default:"—" }}</code></td>
                                     <td><span class="badge text-bg-secondary">{{ field.get_field_type_display }}</span></td>
                                     <td>{% if field.required %}<span class="text-danger">Yes</span>{% else %}No{% endif %}</td>
-                                    <td class="small">
-                                        {% if field.role_list %}
-                                            {% for code in field.role_list %}<span class="badge text-bg-light border me-1">{{ code }}</span>{% endfor %}
-                                        {% else %}
-                                            <span class="text-muted">Everyone</span>
-                                        {% endif %}
-                                    </td>
                                     <td class="text-end">
                                         {% if perms.services.delete_servicecustomfield %}
                                         <form method="post" action="{% url 'services:field_delete' service.pk field.pk %}" class="d-inline"
@@ -113,7 +110,7 @@
                     </table>
                 </div>
                 {% else %}
-                    <p class="text-muted small mb-0">No custom fields yet. Add inputs that staff must fill when this service is billed (e.g. amount, commission %, bank account).</p>
+                    <p class="text-muted small mb-0">No custom fields yet. Add inputs that staff must fill when this service is billed (e.g. amount, commission %, bank account). Each field has a variable name you can reference in the pricing formulas.</p>
                 {% endif %}
 
                 {% if custom_field_form %}
@@ -122,6 +119,7 @@
                 <form method="post" action="{% url 'services:field_create' service.pk %}" class="row g-3">
                     {% csrf_token %}
                     <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.label %}</div>
+                    <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.variable_name %}</div>
                     <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.field_type %}</div>
                     <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.ordering %}</div>
                     <div class="col-md-6">{% include "includes/field.html" with field=custom_field_form.required %}</div>

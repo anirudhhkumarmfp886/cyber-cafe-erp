@@ -61,12 +61,6 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="{% url 'workentry:list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'workentry' %}active{% endif %}">
-                <i class="bi bi-pencil-square me-2"></i>Work Entry
-            </a>
-        </li>
-        <li class="nav-item">
             <a href="{% url 'reports:index' %}"
                class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}">
                 <i class="bi bi-graph-up me-2"></i>Reports

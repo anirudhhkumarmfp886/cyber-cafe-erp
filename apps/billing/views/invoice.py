@@ -14,7 +14,6 @@ from django.views import View
 from django.views.generic import DetailView, ListView
 
 from apps.billing.forms.invoice import (
-    CashOutForm,
     InvoiceForm,
     InvoiceLineFormSet,
     PaymentSplitFormSet,
@@ -22,7 +21,7 @@ from apps.billing.forms.invoice import (
 )
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.billing.selectors.invoice_selector import InvoiceSelector
-from apps.billing.services.billing_service import BillingService, CashOutService
+from apps.billing.services.billing_service import BillingService
 from apps.customers.services.customer_service import CustomerService
 
 _FORMSET_PREFIX = "line"
@@ -198,49 +197,3 @@ class InvoiceDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
         BillingService.soft_delete_invoice(invoice=invoice, by=request.user)
         messages.success(request, f"{invoice.invoice_number} has been voided.")
         return HttpResponseRedirect(reverse_lazy("billing:list"))
-
-
-class CashOutListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
-    permission_required = "billing.view_cashout"
-    template_name = "billing/cashout_list.html"
-    context_object_name = "cash_outs"
-    paginate_by = 20
-
-    def get_queryset(self):
-        filters = {
-            "from_date": self.request.GET.get("from_date", ""),
-            "to_date": self.request.GET.get("to_date", ""),
-        }
-        return InvoiceSelector.list_cash_outs(filters)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["page_title"] = "Cash Out / E-Sathi"
-        if self.request.user.has_perm("billing.add_cashout"):
-            context["cashout_form"] = CashOutForm()
-        return context
-
-    def get_form_error_response(self, form):
-        self.object_list = self.get_queryset()
-        context = self.get_context_data()
-        context["cashout_form"] = form
-        return self.render_to_response(context)
-
-    def post(self, request):
-        if not request.user.has_perm("billing.add_cashout"):
-            return self.handle_no_permission()
-        form = CashOutForm(request.POST)
-        if form.is_valid():
-            try:
-                cash_out = CashOutService.create_cash_out(data=form.cleaned_data, by=request.user)
-            except ValueError as exc:
-                messages.error(request, str(exc))
-                form.add_error(None, str(exc))
-                return self.get_form_error_response(form)
-            messages.success(
-                request,
-                f"{cash_out.reference_number}: cash given {cash_out.cash_given}, "
-                f"commission {cash_out.commission_amount}.",
-            )
-            return HttpResponseRedirect(reverse_lazy("billing:cashout_list"))
-        return self.get_form_error_response(form)

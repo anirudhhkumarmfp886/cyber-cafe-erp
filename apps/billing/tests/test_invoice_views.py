@@ -5,10 +5,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.billing.forms.invoice import InvoiceLineFormSet
-from apps.billing.models import CashOut, Invoice
+from apps.billing.models import Invoice
 from apps.billing.services.billing_service import BillingService
 from apps.customers.services.customer_service import CustomerService
-from apps.finance.services.bank_service import BankService
 from apps.services.services.service_service import ServiceService
 
 User = get_user_model()
@@ -103,25 +102,6 @@ class BillingViewTests(TestCase):
         invoice.refresh_from_db()
         self.assertEqual(invoice.status, "PAID")
 
-    def test_cashout_list_creates_cash_out(self):
-        account = BankService.create_account(
-            account_name="HDFC", bank_name="HDFC", account_number="5010000001", by=self.boss
-        )
-        response = self.client.post(
-            reverse("billing:cashout_list"),
-            {
-                "customer": str(self.customer.pk),
-                "bank_account": str(account.pk),
-                "transfer_amount": "5000",
-                "commission_percent": "1.5",
-                "notes": "",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        cash_out = CashOut.objects.get()
-        self.assertEqual(cash_out.commission_amount, 75)
-        self.assertEqual(cash_out.cash_given, 4925)
-
 
 class BillingPermissionTests(TestCase):
     def setUp(self):
@@ -153,19 +133,3 @@ class BillingPermissionTests(TestCase):
         response = self.client.post(reverse("billing:list"), data)
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Invoice.objects.exists())
-
-    def test_staff_cannot_create_cash_out(self):
-        account = BankService.create_account(
-            account_name="HDFC", bank_name="HDFC", account_number="5010000002", by=self.boss
-        )
-        self.client.login(username="staff", password="StrongPass#123")
-        response = self.client.post(
-            reverse("billing:cashout_list"),
-            {
-                "bank_account": str(account.pk),
-                "transfer_amount": "1000",
-                "commission_percent": "1",
-                "notes": "",
-            },
-        )
-        self.assertEqual(response.status_code, 403)

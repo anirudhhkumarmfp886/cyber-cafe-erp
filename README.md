@@ -6,20 +6,17 @@ An ERP platform that combines CRM, Billing, Accounting, Employee Management,
 Inventory, Customer Management, Wallet Engine, Cash Book, Bank Ledger,
 Reporting and Audit — built on Django.
 
-> Status: **Sprint 4 complete** — Foundation, Authentication, Roles,
-> Permissions, Employees, Wallet Engine, Cash Book, Bank Ledger,
-> Customers, Services, Daily Work Log, Billing (invoices, credit,
-> cash-out / E-Sathi), Reports + Analytics with CSV export. **Plus**:
-> free-form service categories and role-gated custom fields per service.
-> **Phase 1**: per-staff cash books (income/expense split by permission,
-> owner withdrawal/deposit, today + as-on-date balances), expense entries
-> with mode & staff attribution, and one-click customer add on the billing
-> screen. **Phase 2 (2-wallet + split payment)**: every staff member has a
-> CASH and an ONLINE/UPI wallet (owner tops up each separately, mirrored
-> in the shop cash book / bank), bills can be split across cash + UPI/bank
-> payments (each leg books its own ledger + staff wallet), and a
-> cash-withdrawal line (transfer + commission + bank account fields) books
-> the staff cash-out, commission income and bank deposit automatically.
+> Status: **Sprint 4.5 (Consolidation) complete.** Billing is now the single
+> authoritative surface for income. Every service can be priced with
+> whitelisted math formulas (`total_formula` / `income_formula`) referenced
+> by custom-field variable names, and pass-through money
+> (`passthrough_type` = cash given / online transfer) is tracked separately
+> from shop income via `InvoiceLine.income_amount`. Payments gained a
+> **Customer Wallet** mode (draws down `Customer.credit_balance`, refunded
+> on void). Saved WorkEntry counter bills were migrated into invoices and
+> the WorkEntry + CashOut UIs retired (history kept). P&L income now reads
+> `InvoiceLine.income_amount` across all payment modes instead of the cash
+> book alone.
 
 ---
 
@@ -54,11 +51,14 @@ apps/
 ├── finance/     Cash Book, Bank Ledger, derived balances, services
 ├── customers/   Customer profiles + credit limits (profiles only in S3)
 ├── services/    Service catalog + free-form categories + custom fields
-│                (role-gated, per-service inputs captured on the bill)
+│                (role-gated, per-service inputs captured on the bill;
+│                formula pricing via total/income formulas + passthrough type)
 ├── billing/     Invoices + lines, credit settlement, cash-out / E-Sathi,
-│                custom-field values + auto bank deposit
+│                custom-field values + auto bank deposit, customer-wallet
+│                payments, formula-priced lines with income_amount
 ├── reports/     P&L, bank/wallet statements, ledger, salary, analytics, CSV
-└── pages/       Dashboard / home pages
+├── pages/       Dashboard / home pages
+└── workentry/   WorkEntry (history only; counter UI retired in Sprint 4.5)
 ```
 
 ### Sprint roadmap
@@ -71,7 +71,8 @@ apps/
 | 4      | Billing, Dashboard, Reports, Analytics | Done |
 | 4.1    | Service categories (define your own) + custom fields per service (role-based, auto bank deposit) | **Done** (this session) |
 | 4.2    | Per-staff cash books (income/expense by permission, owner cash, today/as-on balance), expense add with mode+staff, quick customer add on billing | **Done** (this session) |
-| 4.3    | 2-wallet staff model (CASH + ONLINE/UPI, owner top-up mirrored to cash book/bank), split-payment billing (cash + UPI legs each auto-ledgered), cash-withdrawal line auto-ledger (staff cash-out, commission income, bank deposit) | **Done** (this session) |
+| 4.3    | 2-wallet staff model (CASH + ONLINE/UPI, owner top-up mirrored to cash book/bank), split-payment billing (cash + UPI legs each auto-ledgered), cash-withdrawal line auto-ledger (staff cash-out, commission income, bank deposit) | **Done** |
+| 4.5    | Formula-driven pricing (whitelisted parser, `total_formula` / `income_formula`, `passthrough_type`, custom-field `variable_name`), Customer Wallet payment mode (credit-balance draw-down + void refund), WorkEntry→Invoice migration + WorkEntry/CashOut UI retirement, P&L income from `InvoiceLine.income_amount` | **Done** (this session) |
 | 5      | Inventory | Next |
 
 ---
@@ -148,6 +149,16 @@ ruff check apps config manage.py
 7. **Money is always `Decimal`.** `MONEY_MAX_DIGITS=18`, `MONEY_DECIMAL_PLACES=2`
    are the single source of truth; the `inr` template filter renders ₹ amounts.
    Balances are computed from transactions (never stored balances) from Sprint 2 on.
+
+8. **Formula pricing without `eval()`.**
+   `apps/common/services/formula.py` is a whitelisted recursive-descent parser
+   (`+ - * /`, parentheses, unary minus, Decimal). A service's
+   `total_formula` / `income_formula` evaluate against the bill line's
+   custom-field variable names (+ `qty`, `price`); there is no way to reach
+   Python imports, models, the filesystem or the network. `income_amount`
+   (what the shop keeps) is stored per line and is the P&L income source,
+   while `pass_through_amount` (money handed to the customer / transferred
+   out) is booked to the staff wallet + ledgers separately.
 
 ---
 

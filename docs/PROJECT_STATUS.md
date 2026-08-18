@@ -28,10 +28,59 @@ selectors, views stay thin.
 | 1 | Foundation, Auth, Roles, Permissions, Employees, Base Layout | Done |
 | 2 | Wallet Engine, Cash Book, Bank Ledger | Done |
 | 3 | Customers, Services, Daily Work Log | **Done** (committed) |
-| 4 | Billing, Dashboard, Reports, Analytics | **Done** (this session) |
+| 4 | Billing, Dashboard, Reports, Analytics | **Done** |
+| 4.5 | Formula billing, Customer Wallet, Invoice consolidation, P&L income fix | **Done** (this session) |
 | 5 | Inventory | Next |
 
 Tests: full suite passes. Ruff lint clean. All migrations applied.
+
+### Sprint 4.5 (Consolidation) — built this session
+1. **Formula-driven pricing** (`apps/common/services/formula.py`) — a
+   restricted formula engine replaces the hard-coded per-service pricing
+   rules. `Service` gained `passthrough_type` (NONE / CASH / ONLINE),
+   `total_formula` and `income_formula`; `ServiceCustomField.variable_name`
+   (auto-slugged from the label) is what formulas reference. Grammar is a
+   hand-written whitelisted recursive-descent parser: Decimal numbers,
+   identifiers, `+ - * /`, parentheses, unary minus — **no `eval()`, no
+   imports, no models, no filesystem**. Every bill line now carries
+   `income_amount` = what the shop actually keeps, and `Invoice` /
+   `InvoiceLine` expose `income_amount` / `pass_through_amount` properties.
+2. **Customer Wallet payment mode** — `CUSTOMER_WALLET` is a first-class
+   payment mode (billing screen split rows + invoice settle). Paying draws
+   down `Customer.credit_balance` (`_book_wallet_payment`); settling an
+   unpaid invoice that way works too; voiding an invoice refunds the
+   wallet payment atomically (`_refund_wallet_payment`). Only `CREDIT` is
+   excluded from the mode dropdowns.
+3. **WorkEntry → Invoice migration** (`billing.0006`) — every SAVED
+   `WorkEntry` was imported into an `Invoice` + `InvoiceLine` (PAID, the
+   four legs preserved as `InvoiceLineFieldValue` rows, `income_amount` =
+   charged amount), and every pre-4.5 `InvoiceLine` had
+   `income_amount` backfilled to `amount` (historical P&L preserved).
+   `billing.0007` links imported invoices back to the original
+   `Work entry WE-…` cash entries so P&L never double-counts them. The
+   original ledger entries were **not** re-booked — money only moved once.
+4. **WorkEntry + CashOut UI retired** — the counter / cash-out surfaces
+   are gone: routes, views, forms, sidebar links and dashboard quick
+   actions removed; `workentry:list` / `billing:cashout_list` now raise
+   `NoReverseMatch`. The models and their history (incl. `COUT-*` ledger
+   entries) remain queryable via Django admin. Templates were archived to
+   `/tmp/opencode/retired_templates/`.
+5. **P&L income fix** — Profit & Loss income now comes from
+   `InvoiceLine.income_amount` on active invoices by `billed_on`, across
+   every payment mode (cash / UPI / card / bank / wallet). Cash Book
+   income excludes any entry linked to an invoice/payment/line, and a
+   "Billing income (all modes)" row leads the income section. The dashboard
+   `today_income` stat uses the same source
+   (`ReportService.income_total`).
+6. **Formula billing UI** — service create/edit forms and the custom-field
+   table now expose `passthrough_type`, `total_formula`, `income_formula`
+   and `variable_name`, with help text listing the available variables
+   (`qty`, `price`, plus each field's variable name). Formula validation
+   rejects unknown variables at save time.
+7. Tests: +~60 new tests (formula engine unit tests, formula billing
+   incl. ONLINE/CASH passthrough legs, customer-wallet pay/settle/void
+   refund, P&L income + de-dupe, migration 0006/0007 behavior via
+   `MigrationExecutor`). Full suite green, ruff clean.
 
 ### Sprint 4 deliverables (built this session)
 1. **Billing** (`apps/billing/`) — `Invoice`, `InvoiceLine` (service, qty,
@@ -218,7 +267,8 @@ now works end-to-end through the billing screen:
 - **Reference numbers:** minted via
   `apps.common.services.reference_service.ReferenceService` —
   `WAL-xxxxxx` (wallet), `CB-xxxxxx` (cash book), `BANK-xxxxxx` (bank),
-  `INV-xxxxxx` (invoice), `COUT-xxxxxx` (cash-out).
+  `INV-xxxxxx` (invoice), `COUT-xxxxxx` (cash-out), `WE-xxxxxx`
+  (work-entry history).
   Non-financial records (customers, services) don't need references.
 - **Money:** `Decimal`, `MONEY_MAX_DIGITS=18`, `MONEY_DECIMAL_PLACES=2`
   in `config/settings/base.py` via the `money_field()` helper. Use the
@@ -242,9 +292,10 @@ now works end-to-end through the billing screen:
 | Finance | `apps.finance` | `CashBookEntry`, `BankAccount`, `BankTransaction` | `/finance/cashbook/`, `/finance/bank/` |
 | Customers | `apps.customers` | `Customer` | `/customers/` |
 | Services | `apps.services` | `Service`, `ServicePriceHistory` | `/services/` |
-| Billing | `apps.billing` | `Invoice`, `InvoiceLine`, `InvoicePayment`, `CashOut` | `/billing/`, `/billing/cashout/` |
+| Billing | `apps.billing` | `Invoice`, `InvoiceLine`, `InvoicePayment`, `CashOut` | `/billing/` |
 | Reports | `apps.reports` | (service layer, no models) | `/reports/` + CSV |
 | Pages | `apps.pages` | Dashboard | `/` |
+| WorkEntry | `apps.workentry` | `WorkEntry` (history only; UI retired) | admin only |
 
 Wallet service API (`apps/employees/services/wallet_service.py`):
 `credit`, `debit`, `transfer`, `balance_of`, `get_or_create_wallet`.
@@ -263,11 +314,14 @@ Service catalog: `ServiceService.create_service/update_service/
 deactivate_service/restore_service` (price changes append history).
 
 Billing API (`apps/billing/services/billing_service.py`):
-`BillingService.create_invoice/settle_invoice/soft_delete_invoice`;
+`BillingService.create_invoice/settle_invoice/soft_delete_invoice` (formula
+pricing, split payments, customer-wallet draw-down + void refund);
 `CashOutService.create_cash_out` (bank deposit + COMMISSION income +
 CASH_OUT expense atomically). Invoice totals are always derived from
 lines; credit is enforced against `Customer.credit_limit` via
-`InvoiceSelector.outstanding_for_customer`.
+`InvoiceSelector.outstanding_for_customer`. Line income =
+`InvoiceLine.income_amount` (formula or plain sale = full amount); it is
+the authoritative P&L income source.
 
 Report API (`apps/reports/services/report_service.py`): `profit_loss`,
 `bank_statement`, `customer_ledger`, `wallet_statement`, `salary_summary`,
@@ -289,18 +343,16 @@ Report API (`apps/reports/services/report_service.py`): `profit_loss`,
 - Daily Work Log: no duplicate-shift guard per employee+day (multiple
   entries allowed); wage is snapshot-based, no attendance clocking.
 - Printing/colour/online-form-fill billing is catalog `Service` line
-  items — no dedicated billing code, by design.
-- **P&L currently reads only the Cash Book.** Since UPI/bank sales now
-  deposit into the bank ledger (not the cash book), the Profit & Loss
-  report under-states income from UPI/card/bank payments and from
-  withdrawal transfer-in. Recommended follow-up: fold bank `PAYMENT_RECEIVED`
-  into P&L income while excluding withdrawal/cash-out principal (the
-  commission entry already carries the P&L income for those), and mirror
-  staff ONLINE-float top-ups as bank expense.
-- `settle_invoice` still books settlements into the Cash Book only (no
-  staff-wallet credit / bank deposit for UPI settlements). Full split
-  settlements were left out of scope this session; the create-bill path
-  carries the wallet + bank auto-ledger.
+  items — no dedicated billing code, by design (Sprint 4.5: such services
+  are priced via `total_formula` / `income_formula` instead).
+- `settle_invoice` books a cash/UPI settlement into the Cash Book / bank
+  ledger but does not credit a staff wallet or link a bank-account deposit
+  the way the create-bill path does (the create path carries the wallet +
+  bank auto-ledger; settlements were kept simple). Full split settlements
+  remain a possible follow-up.
+- Customer-wallet history: a wallet draw-down/refund is visible on the
+  invoice payment list, but there is no standalone customer-wallet ledger
+  page (would require a `CustomerWalletTransaction` model).
 
 ---
 

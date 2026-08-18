@@ -52,6 +52,15 @@
                                     <td class="text-end">{{ line.unit_price|inr }}</td>
                                     <td class="text-end fw-semibold">{{ line.amount|inr }}</td>
                                 </tr>
+                                {% if line.pass_through_amount > 0 %}
+                                <tr class="table-warning">
+                                    <td colspan="4" class="ps-4 py-1 small fw-semibold">
+                                        <i class="bi bi-arrow-right-left me-1"></i>Pass-through:
+                                        {{ line.pass_through_amount|inr }} handed / sent on customer's behalf
+                                        (shop income {{ line.income_amount|inr }})
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 {% if line.withdrawal_summary %}
                                 <tr class="table-info">
                                     <td colspan="4" class="ps-4 py-1 small fw-semibold">
@@ -87,6 +96,16 @@
                                 <td colspan="3" class="text-end">Total</td>
                                 <td class="text-end">{{ invoice.total|inr }}</td>
                             </tr>
+                            {% if invoice.pass_through_amount > 0 %}
+                            <tr class="text-warning">
+                                <td colspan="3" class="text-end">Pass-through (not income)</td>
+                                <td class="text-end">-{{ invoice.pass_through_amount|inr }}</td>
+                            </tr>
+                            <tr class="text-success fw-semibold">
+                                <td colspan="3" class="text-end">Shop income</td>
+                                <td class="text-end">{{ invoice.income_amount|inr }}</td>
+                            </tr>
+                            {% endif %}
                             <tr class="{% if invoice.outstanding_amount > 0 %}text-danger{% endif %}">
                                 <td colspan="3" class="text-end">Outstanding</td>
                                 <td class="text-end">{{ invoice.outstanding_amount|inr }}</td>
@@ -164,6 +183,10 @@
                 <li class="list-group-item d-flex justify-content-between">
                     <span>Paid</span>
                     <span class="fw-semibold text-success">{{ invoice.paid_amount|inr }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Shop income</span>
+                    <span class="fw-semibold text-success">{{ invoice.income_amount|inr }}</span>
                 </li>
                 <li class="list-group-item d-flex justify-content-between">
                     <span>Outstanding</span>

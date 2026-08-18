@@ -1,10 +1,7 @@
-from django.urls import path
+"""
+WorkEntry URL routes were retired in Sprint 4.5.
 
-from apps.workentry.views import workentry as workentry_views
-
-app_name = "workentry"
-
-urlpatterns = [
-    path("", workentry_views.WorkEntryListView.as_view(), name="list"),
-    path("<uuid:pk>/", workentry_views.WorkEntryBillView.as_view(), name="bill"),
-]
+The work-entry counter UI no longer has public routes; saved work entries
+were migrated to invoices (see ``billing.0006``). The app stays installed so
+its model and migration history remain queryable through Django admin.
+"""

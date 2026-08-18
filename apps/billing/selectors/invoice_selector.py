@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 
-from apps.billing.models import CashOut, Invoice, InvoiceLine, InvoiceStatus
+from apps.billing.models import Invoice, InvoiceLine, InvoiceStatus
 from apps.customers.models import Customer
 
 
@@ -57,19 +57,6 @@ class InvoiceSelector:
         for invoice in open_invoices:
             total += invoice.total - invoice.paid_amount
         return total
-
-    @staticmethod
-    def list_cash_outs(filters: dict):
-        queryset = CashOut.objects.select_related("customer", "bank_account").order_by(
-            "-cash_out_on", "-created_at"
-        )
-        from_date = filters.get("from_date")
-        to_date = filters.get("to_date")
-        if from_date:
-            queryset = queryset.filter(cash_out_on__gte=from_date)
-        if to_date:
-            queryset = queryset.filter(cash_out_on__lte=to_date)
-        return queryset
 
     @staticmethod
     def today_billing_total():

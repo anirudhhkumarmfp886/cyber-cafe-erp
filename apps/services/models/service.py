@@ -13,8 +13,17 @@ bill for that service (e.g. a cash-withdrawal service records the amount
 given, the commission percentage, and which bank account the customer
 transferred into). Bank-transfer fields trigger an automatic bank deposit
 when the service is billed.
+
+How the amount is charged is formula-driven. A service with no formulas is
+priced ``qty × price`` like a plain sale. An owner may instead supply a
+``total_formula`` (what the customer is charged) and an ``income_formula``
+(what the shop actually keeps) built from the service's field variables —
+see ``apps.common.services.formula``. A ``passthrough_type`` other than
+``NONE`` marks that the difference between the two is money moving on the
+customer's behalf (cash handed out, online transfer), not shop income.
 """
 from apps.common.models import BaseModel, money_field
+from apps.common.services.formula import ServicePassThroughType
 from django.db import models
 
 
@@ -55,6 +64,23 @@ class Service(BaseModel):
     unit = models.CharField(max_length=50, blank=True, help_text="Billing unit, e.g. 'per hour', 'per page'.")
     price = money_field()
     description = models.TextField(blank=True)
+    passthrough_type = models.CharField(
+        max_length=20,
+        choices=ServicePassThroughType.choices,
+        default=ServicePassThroughType.NONE,
+        help_text="How pass-through money leaves the shop when this service is billed.",
+    )
+    total_formula = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Optional formula for what the customer is charged. Uses field variables, qty, price. "
+        "Leave blank for qty × price.",
+    )
+    income_formula = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Optional formula for what the shop keeps. Leave blank to keep the whole line amount.",
+    )
 
     class Meta:
         ordering = ["category__name", "name"]
@@ -88,6 +114,13 @@ class ServiceCustomField(BaseModel):
         related_name="custom_fields",
     )
     label = models.CharField(max_length=100)
+    variable_name = models.CharField(
+        max_length=50,
+        blank=True,
+        db_index=True,
+        help_text="Machine name used inside service formulas, e.g. 'cash_amount'. "
+        "Auto-generated from the label when left blank.",
+    )
     field_type = models.CharField(
         max_length=20,
         choices=CustomFieldType.choices,

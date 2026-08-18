@@ -7,9 +7,16 @@ Book atomically at creation; a credit bill stays UNPAID until settled, and
 each settlement also lands in the Cash Book. Voiding (soft delete) reverses
 the linked Cash Book entries so the ledger stays truthful.
 
-Cash Out (E-Sathi) lives here too: the customer transfers into our bank
-account, we hand over cash after cutting a manually-entered commission
-percentage.
+Bill lines carry both the amount charged to the customer (``amount``) and
+the income the shop actually keeps (``income_amount``). For plain sales they
+are identical; for pass-through services (cash withdrawal, money transfer,
+form fill-up) the difference is money moving on the customer's behalf and
+is never treated as shop income. ``income_amount`` is the authoritative P&L
+source.
+
+Cash Out (E-Sathi) history is preserved as migrated invoices (see the data
+migration that imported ``CashOut`` records); the CashOut entry point itself
+was retired in Sprint 4.5.
 """
 from datetime import date
 
@@ -27,6 +34,7 @@ class InvoicePaymentMode(models.TextChoices):
     CARD = "CARD", "Card"
     BANK_TRANSFER = "BANK_TRANSFER", "Bank Transfer"
     CREDIT = "CREDIT", "Credit / On Account"
+    CUSTOMER_WALLET = "CUSTOMER_WALLET", "Customer Wallet (credit balance)"
 
 
 class InvoiceStatus(models.TextChoices):
@@ -78,6 +86,14 @@ class Invoice(BaseModel):
         editable=False,
     )
     billed_on = models.DateField(default=date.today, db_index=True)
+    #: Source reference for migrated history (e.g. ``WE-000001`` / ``COUT-…``).
+    #: Kept editable=False as an audit trail; it is never used for billing.
+    related_reference = models.CharField(
+        max_length=30,
+        blank=True,
+        editable=False,
+        db_index=True,
+    )
 
     class Meta:
         ordering = ["-billed_on", "-created_at"]
@@ -105,6 +121,20 @@ class Invoice(BaseModel):
     def outstanding_amount(self):
         return self.total - self.paid_amount
 
+    @property
+    def income_amount(self):
+        """Shop income for this invoice = sum of line income amounts.
+
+        Difference between ``total`` and ``income`` is pass-through money
+        moving on the customer's behalf, never shop income.
+        """
+        total = self.lines.aggregate(income=models.Sum("income_amount"))["income"]
+        return total or 0
+
+    @property
+    def pass_through_amount(self):
+        return self.total - self.income_amount
+
 
 class InvoiceLine(BaseModel):
     invoice = models.ForeignKey(
@@ -123,6 +153,36 @@ class InvoiceLine(BaseModel):
     qty = models.DecimalField(max_digits=8, decimal_places=2)
     unit_price = money_field()
     amount = money_field()
+    #: What the shop actually keeps. For plain sales equals ``amount``; for
+    #: pass-through services (withdrawal / transfer / form fill-up) the
+    #: difference from ``amount`` is money handed to the customer or sent
+    #: onward. The authoritative P&L source.
+    income_amount = money_field(default=0)
+    #: Linked money-move legs so a void can reverse them atomically.
+    cash_entry = models.ForeignKey(
+        CashBookEntry,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        editable=False,
+    )
+    wallet_entry = models.ForeignKey(
+        "employees.WalletTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        editable=False,
+    )
+    bank_transaction = models.ForeignKey(
+        BankTransaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        editable=False,
+    )
 
     class Meta:
         ordering = ["created_at"]
@@ -131,6 +191,11 @@ class InvoiceLine(BaseModel):
 
     def __str__(self):
         return f"{self.description} x {self.qty}"
+
+    @property
+    def pass_through_amount(self):
+        """Money moving on the customer's behalf for this line."""
+        return self.amount - self.income_amount
 
     @property
     def withdrawal_summary(self) -> str | None:
@@ -178,6 +243,9 @@ class InvoiceLineFieldValue(BaseModel):
         ServiceCustomField,
         on_delete=models.PROTECT,
         related_name="+",
+        null=True,
+        blank=True,
+        help_text="Null for migrated / formula-only values without a live custom-field definition.",
     )
     field_label = models.CharField(max_length=100)
     field_type = models.CharField(max_length=20)

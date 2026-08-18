@@ -20,11 +20,54 @@ class ServiceForm(forms.ModelForm):
 
     class Meta:
         model = Service
-        fields = ["name", "category", "new_category", "unit", "price", "description"]
+        fields = [
+            "name",
+            "category",
+            "new_category",
+            "unit",
+            "price",
+            "passthrough_type",
+            "total_formula",
+            "income_formula",
+            "description",
+        ]
         widgets = {
             "category": forms.Select(attrs={"class": "form-select"}),
             "price": forms.NumberInput(attrs={"step": "0.01", "min": "0.01"}),
+            "passthrough_type": forms.Select(attrs={"class": "form-select"}),
+            "total_formula": forms.TextInput(
+                attrs={
+                    "class": "form-control font-monospace",
+                    "placeholder": "e.g. cash * (1 + pct / 100)",
+                }
+            ),
+            "income_formula": forms.TextInput(
+                attrs={
+                    "class": "form-control font-monospace",
+                    "placeholder": "e.g. cash * pct / 100",
+                }
+            ),
             "description": forms.Textarea(attrs={"rows": 3}),
+        }
+        help_texts = {
+            "total_formula": (
+                "Math formula for what the customer pays. Variables: qty, price, "
+                "and the custom fields' variable names (e.g. cash, pct). "
+                "Supports + - * / and parentheses."
+            ),
+            "income_formula": (
+                "Math formula for what the shop keeps. Blank = same as the total. "
+                "Never exceeds the total."
+            ),
+            "passthrough_type": (
+                "How the difference between total and income leaves the shop. "
+                "Blank = plain sale."
+            ),
+        }
+        help_texts = {
+            "total_formula": "Math formula for what the customer pays. Variables: qty, price, and the custom fields' variable names (e.g. cash, pct). Supports + - * / and parentheses.",
+            "income_formula": "Math formula for what the shop keeps. Blank = same as the total. Never exceeds the total.",
+            "passthrough_type": "How the difference between total and income leaves the shop. Blank = plain sale.",
         }
 
     def __init__(self, *args, **kwargs):
@@ -32,6 +75,7 @@ class ServiceForm(forms.ModelForm):
         self.fields["category"].queryset = Category.objects.order_by("name")
         self.fields["category"].required = False
         self.fields["category"].empty_label = "— Choose existing (or add new below) —"
+        self.fields["passthrough_type"].required = False
         if self.instance and self.instance.category_id:
             self.initial["category"] = self.instance.category_id
 

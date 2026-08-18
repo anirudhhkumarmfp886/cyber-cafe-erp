@@ -66,6 +66,7 @@ class ServiceSelector:
         for field in ServiceSelector.visible_custom_fields(service, user):
             item = {
                 "id": str(field.pk),
+                "variable_name": field.variable_name,
                 "label": field.label,
                 "field_type": field.field_type,
                 "required": field.required,

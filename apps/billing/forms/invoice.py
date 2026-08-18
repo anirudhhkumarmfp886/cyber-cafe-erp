@@ -1,7 +1,7 @@
-"""Forms for billing: invoices (header + lines) and cash-outs."""
+"""Forms for billing: invoices (header + lines) and settlements."""
 from django import forms
 
-from apps.billing.models import CashOut, Invoice, InvoiceLine, InvoicePaymentMode
+from apps.billing.models import Invoice, InvoiceLine, InvoicePaymentMode
 from apps.customers.models import Customer
 from apps.finance.models import BankAccount
 from apps.services.models import Service
@@ -129,23 +129,3 @@ class SettleInvoiceForm(forms.Form):
         max_length=200,
         widget=forms.TextInput(attrs={"class": "form-control"}),
     )
-
-
-class CashOutForm(forms.ModelForm):
-    class Meta:
-        model = CashOut
-        fields = ["customer", "bank_account", "transfer_amount", "commission_percent", "notes"]
-        widgets = {
-            "customer": forms.Select(attrs={"class": "form-select"}),
-            "bank_account": forms.Select(attrs={"class": "form-select"}),
-            "transfer_amount": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0.01"}),
-            "commission_percent": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0", "max": "100"}),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["customer"].queryset = Customer.objects.order_by("full_name")
-        self.fields["customer"].required = False
-        self.fields["bank_account"].queryset = BankAccount.objects.order_by("account_name")
-        self.fields["commission_percent"].initial = 0

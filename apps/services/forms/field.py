@@ -16,9 +16,15 @@ class ServiceCustomFieldForm(forms.ModelForm):
 
     class Meta:
         model = ServiceCustomField
-        fields = ["label", "field_type", "required", "help_text", "ordering"]
+        fields = ["label", "variable_name", "field_type", "required", "help_text", "ordering"]
         widgets = {
             "label": forms.TextInput(attrs={"class": "form-control"}),
+            "variable_name": forms.TextInput(
+                attrs={
+                    "class": "form-control font-monospace",
+                    "placeholder": "auto from label, e.g. cash_amount",
+                }
+            ),
             "field_type": forms.Select(attrs={"class": "form-select"}),
             "required": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "help_text": forms.TextInput(attrs={"class": "form-control"}),
@@ -29,3 +35,4 @@ class ServiceCustomFieldForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["help_text"].required = False
         self.fields["ordering"].required = False
+        self.fields["variable_name"].required = False
