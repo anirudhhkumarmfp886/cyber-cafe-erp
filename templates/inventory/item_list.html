@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-boxes me-2 text-primary"></i>Inventory</h5>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="text" name="q" class="form-control form-control-sm" placeholder="Search..."
+                   value="{{ q }}">
+            <select name="category" class="form-select form-select-sm" style="width: auto;">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat }}" {% if cat == selected_category %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-outline-primary">Filter</button>
+            <a href="{% url 'inventory:list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </form>
+        {% if low_stock_count %}
+            <a href="{% url 'inventory:low_stock' %}" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-exclamation-triangle me-1"></i>Low Stock ({{ low_stock_count }})
+            </a>
+            <a href="{{ whatsapp_url }}" target="_blank" class="btn btn-sm btn-success">
+                <i class="bi bi-whatsapp me-1"></i>WhatsApp Alert
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if item_form %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>Add Stock Item</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                {% if item_form.non_field_errors %}
+                    <div class="col-12">
+                        {% for error in item_form.non_field_errors %}
+                            <div class="alert alert-danger mb-0">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="col-md-3">{% include "includes/field.html" with field=item_form.name %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=item_form.sku %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=item_form.category %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=item_form.unit %}</div>
+                <div class="col-md-2">{% include "includes/field.html" with field=item_form.reorder_level %}</div>
+                <div class="col-md-9">{% include "includes/field.html" with field=item_form.description %}</div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus me-1"></i>Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Item</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Unit</th>
+                    <th scope="col" class="text-end">Stock</th>
+                    <th scope="col" class="text-end">Reorder</th>
+                    <th scope="col" class="text-end">Avg Cost</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    <tr>
+                        <td class="fw-semibold">
+                            {{ item.name }}
+                            {% if item.sku %}<br><small class="text-muted">{{ item.sku }}</small>{% endif %}
+                        </td>
+                        <td>
+                            {% if item.category %}
+                                <span class="badge text-bg-info">{{ item.category }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.get_unit_display }}</td>
+                        <td class="text-end fw-semibold {% if item.is_low_stock %}text-danger{% endif %}">
+                            {{ item.current_stock }}
+                            {% if item.is_low_stock %}
+                                <i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="Low stock!"></i>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ item.reorder_level }}</td>
+                        <td class="text-end">{{ item.unit_cost|inr }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'inventory:detail' item.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>View
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-boxes fs-2 d-block mb-2"></i>
+                            No stock items found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% include "includes/pagination.html" %}
+{% endblock %}

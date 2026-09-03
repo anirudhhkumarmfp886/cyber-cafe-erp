@@ -67,10 +67,10 @@
             </a>
         </li>
         <li class="nav-item">
-            <span class="nav-link disabled">
+            <a href="{% url 'inventory:list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}">
                 <i class="bi bi-boxes me-2"></i>Inventory
-                <span class="badge text-bg-warning ms-1">S5</span>
-            </span>
+            </a>
         </li>
     </ul>
     <hr class="sidebar-divider">

@@ -22,6 +22,7 @@ from apps.billing.forms.invoice import (
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.billing.selectors.invoice_selector import InvoiceSelector
 from apps.billing.services.billing_service import BillingService
+from apps.common.services.notification_service import NotificationService
 from apps.customers.services.customer_service import CustomerService
 
 _FORMSET_PREFIX = "line"
@@ -155,6 +156,8 @@ class InvoiceDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
         context["page_title"] = self.object.invoice_number
         context["lines"] = InvoiceSelector.lines(self.object)
         context["payments"] = InvoiceSelector.payments(self.object)
+        context["whatsapp_url"] = NotificationService.get_invoice_whatsapp_url(self.object)
+        context["receipt_text"] = NotificationService.format_invoice_text(self.object)
         if self.request.user.has_perm("billing.change_invoice"):
             context["settle_form"] = SettleInvoiceForm()
         return context
@@ -197,3 +200,21 @@ class InvoiceDeleteView(LoginRequiredMixin, PermissionRequiredMixin, View):
         BillingService.soft_delete_invoice(invoice=invoice, by=request.user)
         messages.success(request, f"{invoice.invoice_number} has been voided.")
         return HttpResponseRedirect(reverse_lazy("billing:list"))
+
+
+class InvoiceReceiptView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    """Clean printable / thermal 80mm receipt view."""
+    permission_required = "billing.view_invoice"
+    template_name = "billing/receipt.html"
+    context_object_name = "invoice"
+
+    def get_object(self, queryset=None):
+        return get_object_or_404(Invoice, id=self.kwargs["pk"])
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["page_title"] = f"Receipt #{self.object.invoice_number}"
+        context["lines"] = InvoiceSelector.lines(self.object)
+        context["payments"] = InvoiceSelector.payments(self.object)
+        context["whatsapp_url"] = NotificationService.get_invoice_whatsapp_url(self.object)
+        return context

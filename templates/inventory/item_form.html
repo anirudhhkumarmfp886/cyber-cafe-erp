@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{% url 'inventory:detail' object.pk %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h5 class="mb-0"><i class="bi bi-pencil me-2 text-primary"></i>{{ page_title }}</h5>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="col-12">
+                    {% for error in form.non_field_errors %}
+                        <div class="alert alert-danger mb-0">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <div class="col-md-4">{% include "includes/field.html" with field=form.name %}</div>
+            <div class="col-md-3">{% include "includes/field.html" with field=form.sku %}</div>
+            <div class="col-md-3">{% include "includes/field.html" with field=form.category %}</div>
+            <div class="col-md-2">{% include "includes/field.html" with field=form.unit %}</div>
+            <div class="col-md-3">{% include "includes/field.html" with field=form.reorder_level %}</div>
+            <div class="col-md-9">{% include "includes/field.html" with field=form.description %}</div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+                <a href="{% url 'inventory:detail' object.pk %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

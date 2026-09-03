@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{% url 'inventory:detail' item.pk %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h5 class="mb-0"><i class="bi bi-plus-circle me-2 text-success"></i>{{ page_title }}</h5>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold">Current Status</h6>
+            </div>
+            <div class="card-body text-center">
+                <h3 class="fw-bold {% if item.is_low_stock %}text-danger{% else %}text-success{% endif %}">
+                    {{ item.current_stock }} <small class="text-muted fs-6">{{ item.get_unit_display }}</small>
+                </h3>
+                <p class="text-muted small mb-1">Avg Cost: {{ item.unit_cost|inr }} / {{ item.get_unit_display }}</p>
+                <p class="text-muted small mb-0">Reorder Level: {{ item.reorder_level }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-cart-plus me-2"></i>Purchase Details</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" class="row g-3">
+                    {% csrf_token %}
+                    <div class="col-md-6">
+                        <label class="form-label">Quantity<span class="text-danger">*</span></label>
+                        {{ form.quantity }}
+                        {% for error in form.quantity.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Unit Cost (₹)<span class="text-danger">*</span></label>
+                        {{ form.unit_cost }}
+                        {% if form.unit_cost.help_text %}<div class="form-text">{{ form.unit_cost.help_text }}</div>{% endif %}
+                        {% for error in form.unit_cost.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Supplier Name</label>
+                        {{ form.supplier_name }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Date</label>
+                        {{ form.movement_date }}
+                        {% if form.movement_date.help_text %}<div class="form-text">{{ form.movement_date.help_text }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Payment Mode (Cash Book)</label>
+                        {{ form.payment_mode }}
+                        {% if form.payment_mode.help_text %}<div class="form-text">{{ form.payment_mode.help_text }}</div>{% endif %}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        {{ form.notes }}
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-plus-circle me-1"></i>Record Stock In
+                        </button>
+                        <a href="{% url 'inventory:detail' item.pk %}" class="btn btn-outline-secondary ms-2">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -20,6 +20,7 @@ class ReferenceService:
     INVOICE = "INV"
     CASH_OUT = "COUT"
     WORK_ENTRY = "WE"
+    STOCK = "STK"
 
     @staticmethod
     def next(sequence_name: str, digits: int = 6) -> str:

@@ -6,17 +6,10 @@ An ERP platform that combines CRM, Billing, Accounting, Employee Management,
 Inventory, Customer Management, Wallet Engine, Cash Book, Bank Ledger,
 Reporting and Audit — built on Django.
 
-> Status: **Sprint 4.5 (Consolidation) complete.** Billing is now the single
-> authoritative surface for income. Every service can be priced with
-> whitelisted math formulas (`total_formula` / `income_formula`) referenced
-> by custom-field variable names, and pass-through money
-> (`passthrough_type` = cash given / online transfer) is tracked separately
-> from shop income via `InvoiceLine.income_amount`. Payments gained a
-> **Customer Wallet** mode (draws down `Customer.credit_balance`, refunded
-> on void). Saved WorkEntry counter bills were migrated into invoices and
-> the WorkEntry + CashOut UIs retired (history kept). P&L income now reads
-> `InvoiceLine.income_amount` across all payment modes instead of the cash
-> book alone.
+> Status: **Sprint 6 (WhatsApp & Thermal Receipts) complete.** Billing now
+> includes 1-click WhatsApp receipt sharing, 80mm thermal receipt printing,
+> low-stock alerts with owner WhatsApp alerts, full inventory management with
+> Weighted Average Cost (WAC), formula-driven pricing, and customer wallet.
 
 ---
 
@@ -42,20 +35,21 @@ never leak into templates.
 
 ```
 apps/
-├── common/      BaseModel (UUID + audit + soft delete), managers,
+├── common/      BaseModel (UUID + audit + soft delete), managers, notification service,
 │                current-user middleware, template tags, context processors
 ├── accounts/    Custom User (AbstractBaseUser), login throttling,
 │                profile, admin
 ├── employees/   Employee HR profile, roles, role<->group sync, wallets,
 │                daily work log, CBVs
 ├── finance/     Cash Book, Bank Ledger, derived balances, services
-├── customers/   Customer profiles + credit limits (profiles only in S3)
+├── customers/   Customer profiles + credit limits + advance balance
 ├── services/    Service catalog + free-form categories + custom fields
 │                (role-gated, per-service inputs captured on the bill;
 │                formula pricing via total/income formulas + passthrough type)
-├── billing/     Invoices + lines, credit settlement, cash-out / E-Sathi,
-│                custom-field values + auto bank deposit, customer-wallet
-│                payments, formula-priced lines with income_amount
+├── billing/     Invoices + lines, credit settlement, 1-click WhatsApp share,
+│                thermal receipts (80mm), customer-wallet payments, formula pricing
+├── inventory/   Stock items, consumable tracking, Weighted Average Cost (WAC),
+│                stock movements, cash book integration, low-stock alerts
 ├── reports/     P&L, bank/wallet statements, ledger, salary, analytics, CSV
 ├── pages/       Dashboard / home pages
 └── workentry/   WorkEntry (history only; counter UI retired in Sprint 4.5)
@@ -67,13 +61,11 @@ apps/
 |--------|---------------------------------|--------|
 | 1      | Foundation, Auth, Roles, Employees, Layout | ✅ Done |
 | 2      | Wallet Engine, Cash Book, Bank Ledger | ✅ Done |
-| 3      | Customers, Services, Daily Work Log | Done |
-| 4      | Billing, Dashboard, Reports, Analytics | Done |
-| 4.1    | Service categories (define your own) + custom fields per service (role-based, auto bank deposit) | **Done** (this session) |
-| 4.2    | Per-staff cash books (income/expense by permission, owner cash, today/as-on balance), expense add with mode+staff, quick customer add on billing | **Done** (this session) |
-| 4.3    | 2-wallet staff model (CASH + ONLINE/UPI, owner top-up mirrored to cash book/bank), split-payment billing (cash + UPI legs each auto-ledgered), cash-withdrawal line auto-ledger (staff cash-out, commission income, bank deposit) | **Done** |
-| 4.5    | Formula-driven pricing (whitelisted parser, `total_formula` / `income_formula`, `passthrough_type`, custom-field `variable_name`), Customer Wallet payment mode (credit-balance draw-down + void refund), WorkEntry→Invoice migration + WorkEntry/CashOut UI retirement, P&L income from `InvoiceLine.income_amount` | **Done** (this session) |
-| 5      | Inventory | Next |
+| 3      | Customers, Services, Daily Work Log | ✅ Done |
+| 4      | Billing, Dashboard, Reports, Analytics | ✅ Done |
+| 4.5    | Formula-driven pricing, Customer Wallet, P&L income fix | ✅ Done |
+| 5      | Inventory (Stock In/Out, WAC, Low-Stock Alerts, Cash Book Integration) | ✅ Done |
+| 6      | 1-Click WhatsApp Share, Thermal Receipts (80mm), Low-Stock WhatsApp Alerts | ✅ Done |
 
 ---
 

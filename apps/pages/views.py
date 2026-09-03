@@ -11,6 +11,7 @@ from apps.employees.selectors.worklog_selector import WorkLogSelector
 from apps.finance.selectors.bank_selector import BankSelector
 from apps.finance.selectors.cashbook_selector import CashBookSelector
 from apps.reports.services.report_service import ReportService
+from apps.inventory.selectors.inventory_selector import InventorySelector
 from apps.services.selectors.service_selector import ServiceSelector
 
 
@@ -38,5 +39,10 @@ def dashboard(request):
             "today_income": ReportService.income_total(from_date=today, to_date=today),
         },
         "top_services": InvoiceSelector.top_services(days=30, limit=5),
+        "inventory": {
+            "total_items": InventorySelector.count_active(),
+            "low_stock_count": InventorySelector.count_low_stock(),
+            "stock_value": InventorySelector.total_stock_value(),
+        },
     }
     return render(request, "pages/dashboard.html", context)

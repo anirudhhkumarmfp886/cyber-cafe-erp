@@ -4,7 +4,16 @@
 {% block content %}
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
     <h5 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i>{{ invoice.invoice_number }}</h5>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ whatsapp_url }}" target="_blank" class="btn btn-sm btn-success">
+            <i class="bi bi-whatsapp me-1"></i>Share on WhatsApp
+        </a>
+        <a href="{% url 'billing:receipt' invoice.pk %}" target="_blank" class="btn btn-sm btn-outline-dark">
+            <i class="bi bi-printer me-1"></i>Print Receipt
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyReceiptText()">
+            <i class="bi bi-clipboard me-1"></i>Copy Text
+        </button>
         <a href="{% url 'billing:list' %}" class="btn btn-sm btn-outline-secondary">Back to Billing</a>
         {% if invoice.status != "PAID" and perms.billing.delete_invoice %}
         <form method="post" action="{% url 'billing:delete' invoice.pk %}" class="d-inline">
@@ -17,6 +26,16 @@
         {% endif %}
     </div>
 </div>
+
+<textarea id="rawReceiptText" style="display: none;">{{ receipt_text }}</textarea>
+<script>
+function copyReceiptText() {
+    var text = document.getElementById("rawReceiptText").value;
+    navigator.clipboard.writeText(text).then(function() {
+        alert("Receipt text copied to clipboard!");
+    });
+}
+</script>
 
 <div class="row g-4">
     <div class="col-lg-8">

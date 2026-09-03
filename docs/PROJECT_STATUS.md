@@ -29,10 +29,26 @@ selectors, views stay thin.
 | 2 | Wallet Engine, Cash Book, Bank Ledger | Done |
 | 3 | Customers, Services, Daily Work Log | **Done** (committed) |
 | 4 | Billing, Dashboard, Reports, Analytics | **Done** |
-| 4.5 | Formula billing, Customer Wallet, Invoice consolidation, P&L income fix | **Done** (this session) |
-| 5 | Inventory | Next |
+| 4.5 | Formula billing, Customer Wallet, Invoice consolidation, P&L income fix | **Done** |
+| 5 | Inventory (Stock In/Out, WAC, Low-Stock Alerts, Cash Book Integration) | **Done** |
+| 6 | 1-Click WhatsApp Share, Thermal Receipts, Low-Stock Owner Alerts | **Done** |
 
-Tests: full suite passes. Ruff lint clean. All migrations applied.
+Tests: full suite passes (300 tests). Ruff lint clean. All migrations applied.
+
+### Sprint 6 (WhatsApp & Notification Integration) — built
+1. **1-Click WhatsApp Share**: `NotificationService.get_invoice_whatsapp_url()` generates instant `https://wa.me/91XXXXXXXXXX?text=...` links with formatted bill receipt text.
+2. **Thermal Receipt View**: Dedicated 80mm POS slip view at `/billing/invoices/<uuid>/receipt/` with auto-print capability.
+3. **Low-Stock WhatsApp Alert**: Dedicated 1-click WhatsApp alert generator to notify the owner of items below reorder thresholds.
+4. **Copy Receipt Text**: One-click clipboard copy of clean receipt message.
+5. **Tests**: Full unit tests for phone normalization, message formatting, and receipt views passing.
+
+### Sprint 5 (Inventory Management) — built
+1. **StockItem & StockMovement**: `BaseModel` based models for consumable inventory with unit choices, reorder level alerts, and append-only movement ledger.
+2. **Weighted Average Cost (WAC)**: Automatically calculated on every purchase (stock-in).
+3. **Cash Book Integration**: Purchase stock-in optionally auto-books `PURCHASE` expense in the cash book.
+4. **CBVs, Forms & Templates**: Full CRUD, stock-in, stock-out (with sufficiency checks), physical count adjustment, low-stock alerts, and dedicated view/edit pages.
+5. **Dashboard & Sidebar**: Stock items count, low-stock count, total stock valuation stat cards and navigation.
+6. **Role Permissions**: Full management permissions for Owner/Manager/Accountant, read-only for Staff. All 44 tests passing.
 
 ### Sprint 4.5 (Consolidation) — built this session
 1. **Formula-driven pricing** (`apps/common/services/formula.py`) — a
