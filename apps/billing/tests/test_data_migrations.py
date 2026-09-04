@@ -24,6 +24,7 @@ class WorkEntryImportMigrationTests(TransactionTestCase):
     migrate_from = [
         ("billing", "0005_invoice_related_reference_and_more"),
         ("workentry", "0001_initial"),
+        ("employees", "0007_employee_can_manage_topup"),
     ]
     migrate_to = [("billing", "0007_link_imported_work_entry_cash_entries")]
 
@@ -54,6 +55,8 @@ class WorkEntryImportMigrationTests(TransactionTestCase):
             full_name="Migration Staff",
             role="STAFF",
             hourly_rate=0,
+            can_create_bills=False,
+            can_manage_topup=False,
         )
         entry = WorkEntry.objects.create(
             employee=employee,

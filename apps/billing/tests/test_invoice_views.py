@@ -8,6 +8,7 @@ from apps.billing.forms.invoice import InvoiceLineFormSet
 from apps.billing.models import Invoice
 from apps.billing.services.billing_service import BillingService
 from apps.customers.services.customer_service import CustomerService
+from apps.employees.models import Role
 from apps.services.services.service_service import ServiceService
 
 User = get_user_model()
@@ -126,8 +127,26 @@ class BillingPermissionTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Invoice.objects.exists())
 
-    def test_staff_can_create_invoice(self):
+    def test_staff_without_billing_access_cannot_create_invoice(self):
         self.client.login(username="staff", password="StrongPass#123")
+        data = {"customer": "", "payment_mode": "CASH", "discount": "0", "notes": ""}
+        data.update(_line_formset_data(self.gaming.pk, 1))
+        response = self.client.post(reverse("billing:list"), data)
+        self.assertEqual(response.status_code, 403)
+
+    def test_staff_with_billing_access_can_create_invoice(self):
+        from apps.employees.services.employee_service import EmployeeService
+        staff_emp = EmployeeService.create_employee(
+            data={
+                "username": "staffbilled",
+                "password": "StrongPass#123",
+                "full_name": "Billed Staff",
+                "role": Role.STAFF,
+                "can_create_bills": True,
+            },
+            by=self.boss,
+        )
+        self.client.login(username="staffbilled", password="StrongPass#123")
         data = {"customer": "", "payment_mode": "CASH", "discount": "0", "notes": ""}
         data.update(_line_formset_data(self.gaming.pk, 1))
         response = self.client.post(reverse("billing:list"), data)

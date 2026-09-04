@@ -66,7 +66,7 @@ class ReportService:
     def _income_expense_breakdown(from_date, to_date):
         entries = CashBookEntry.objects.filter(entry_date__gte=from_date, entry_date__lte=to_date)
         linked = ReportService._linked_cash_entry_ids()
-        income_qs = entries.filter(entry_type=CashEntryType.INCOME)
+        income_qs = entries.filter(entry_type=CashEntryType.INCOME).exclude(category=CashEntryCategory.OWNER_DEPOSIT)
         if linked:
             income_qs = income_qs.exclude(id__in=linked)
         income_rows = list(
@@ -79,6 +79,7 @@ class ReportService:
             income_rows.insert(0, {"category": "Billing income (all modes)", "total": billing_income})
         expense_rows = (
             entries.filter(entry_type=CashEntryType.EXPENSE)
+            .exclude(category__in=[CashEntryCategory.OWNER_WITHDRAWAL, CashEntryCategory.ADVANCE])
             .values("category")
             .annotate(total=Coalesce(Sum("amount"), Decimal("0")))
             .order_by("-total")
