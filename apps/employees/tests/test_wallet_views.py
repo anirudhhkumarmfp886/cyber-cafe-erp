@@ -185,3 +185,59 @@ class PermissionEnforcementTests(TestCase):
             {"action": "credit", "amount": "100", "category": "CASH_TOPUP"},
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_manager_without_topup_access_cannot_topup(self):
+        manager_emp = EmployeeService.create_employee(
+            data={
+                "username": "manager2",
+                "password": "StrongPass#123",
+                "full_name": "Manager Two",
+                "role": Role.MANAGER,
+                "can_manage_topup": False,
+            },
+            by=self.boss,
+        )
+        wallet = WalletService.get_or_create_wallet(manager_emp, WalletType.CASH)
+        self.client.login(username="manager2", password="StrongPass#123")
+
+        # Topup form tab is not shown
+        response = self.client.get(reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("topup_form", response.context)
+        self.assertNotContains(response, "Owner Top-up")
+
+        # POST action=topup is rejected
+        post_resp = self.client.post(
+            reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
+            {"action": "topup", "amount": "500", "description": "Unauthorized topup"},
+        )
+        self.assertRedirects(post_resp, reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}))
+        self.assertEqual(WalletService.balance_of(wallet), 0)
+
+    def test_staff_with_topup_access_can_topup(self):
+        staff_emp = EmployeeService.create_employee(
+            data={
+                "username": "topupstaff",
+                "password": "StrongPass#123",
+                "full_name": "Topup Staff",
+                "role": Role.STAFF,
+                "can_manage_topup": True,
+            },
+            by=self.boss,
+        )
+        wallet = WalletService.get_or_create_wallet(staff_emp, WalletType.CASH)
+        self.client.login(username="topupstaff", password="StrongPass#123")
+
+        # Topup form tab is shown
+        response = self.client.get(reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("topup_form", response.context)
+        self.assertContains(response, "Owner Top-up")
+
+        # POST action=topup succeeds
+        post_resp = self.client.post(
+            reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
+            {"action": "topup", "amount": "500", "description": "Authorized staff topup"},
+        )
+        self.assertRedirects(post_resp, reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}))
+        self.assertEqual(WalletService.balance_of(wallet), 500)

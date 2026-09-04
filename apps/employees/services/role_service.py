@@ -83,3 +83,22 @@ def sync_employee_permissions(employee) -> None:
             delattr(user, attr)
 
 
+def user_can_manage_topup(user) -> bool:
+    """Check if the user is authorized to perform Owner Top-up or manage Owner Cash.
+
+    Authorized if:
+    - User is superuser / Owner
+    - Employee has can_manage_topup == True
+    - User has direct permission 'finance.withdraw_shop_cash'
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    employee = getattr(user, "employee", None)
+    if employee:
+        if employee.role == Role.OWNER or getattr(employee, "can_manage_topup", False):
+            return True
+    return user.has_perm("finance.withdraw_shop_cash")
+
+

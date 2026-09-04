@@ -43,10 +43,11 @@ Tests: full suite passes. Ruff lint clean. All migrations applied.
    - Added header-level Bank Account dropdown in `/billing/` for instant UPI/Bank selection without opening split payment dialogs.
    - Enhanced thermal POS receipt (80mm) and WhatsApp receipt sharing with explicit cash withdrawal, commission/fee breakdowns, and accurate net totals.
 2. **Staff Billing & Top-Up Permissions (Give / Revoke Access)**:
-   - Added `can_create_bills` toggle on `Employee` model for granular invoice creation permissions.
-   - Added `can_manage_topup` toggle on `Employee` model for Owner Cash (Withdraw/Deposit) & Wallet Top-Up permissions. Restricted default Owner Cash permissions strictly to `Role.OWNER`.
-   - 1-Click Give/Revoke toggle buttons on Employee Detail view (`/employees/<id>/`) for both Billing and Top-Up permissions.
-   - Switches in Add/Edit Employee forms and `[Bill]` & `[TopUp]` status badges in Employee List.
+   - Added `can_create_bills` and `can_manage_topup` flags to `Employee` model.
+   - Dynamic permission synchronisation (`sync_employee_permissions`) and in-memory auth cache invalidation.
+   - Dedicated Top-Up authorization helper `user_can_manage_topup`: strictly restricts Owner Top-Up form display and POST actions to `Role.OWNER`, superuser, or employees with explicit `can_manage_topup=True`.
+   - 1-click toggle buttons in `/employees/<pk>/` (Detail) and switches in `/employees/add/` and `/employees/<pk>/edit/`.
+   - Badges in `/employees/` list indicating active `[Bill]` and `[TopUp]` permissions.
 3. **Responsive Shell & Collapsible Sidebar**:
    - Fixed sidebar disappearance on desktop/laptop window resize.
    - Expand / Collapse toggle button (`☰`) in topbar with compact icon-only mode (`68px`) for maximum screen space.

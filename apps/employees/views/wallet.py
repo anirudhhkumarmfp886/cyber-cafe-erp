@@ -16,6 +16,7 @@ from apps.employees.forms.wallet import (
 )
 from apps.employees.models import Wallet, WalletType
 from apps.employees.selectors.wallet_selector import WalletSelector
+from apps.employees.services.role_service import user_can_manage_topup
 from apps.employees.services.wallet_service import WalletService
 
 
@@ -59,10 +60,13 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         context["balance"] = WalletService.balance_of(wallet)
         context["transactions"] = WalletSelector.transactions(wallet, limit=150)
         context["other_wallet"] = self._other_wallet(wallet)
+        can_topup = user_can_manage_topup(self.request.user)
+        context["can_topup"] = can_topup
         if self.request.user.has_perm("employees.add_wallettransaction"):
             context["credit_form"] = WalletCreditForm()
             context["debit_form"] = WalletDebitForm()
-            context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
+            if can_topup:
+                context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
             context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
         return context
 
@@ -75,6 +79,12 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         form = None
         try:
             if action == "topup":
+                if not user_can_manage_topup(request.user):
+                    messages.error(
+                        request,
+                        "Permission denied: Only the Owner or authorized staff with Top-Up access can fund wallets.",
+                    )
+                    return HttpResponseRedirect(reverse_lazy("employees:wallet_detail", kwargs={"pk": pk}))
                 form = WalletTopUpForm(request.POST, wallet_type=wallet.wallet_type)
                 if form.is_valid():
                     data = form.cleaned_data
@@ -151,24 +161,15 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         """Re-render the detail page with the offending form bound and errors shown."""
         self.object = wallet
         context = self.get_context_data()
-        if action == "topup":
-            context["topup_form"] = form
-            context["credit_form"] = WalletCreditForm()
-            context["debit_form"] = WalletDebitForm()
-            context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
-        elif action == "credit":
-            context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
-            context["credit_form"] = form
-            context["debit_form"] = WalletDebitForm()
-            context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
-        elif action == "debit":
-            context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
-            context["credit_form"] = WalletCreditForm()
-            context["debit_form"] = form
-            context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
-        else:
-            context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
-            context["credit_form"] = WalletCreditForm()
-            context["debit_form"] = WalletDebitForm()
-            context["transfer_form"] = form
+        can_topup = user_can_manage_topup(request.user)
+        context["topup_form"] = (
+            form if action == "topup"
+            else (WalletTopUpForm(wallet_type=wallet.wallet_type) if can_topup else None)
+        )
+        context["credit_form"] = form if action == "credit" else WalletCreditForm()
+        context["debit_form"] = form if action == "debit" else WalletDebitForm()
+        context["transfer_form"] = (
+            form if action == "transfer"
+            else WalletTransferForm(exclude_employee=wallet.employee)
+        )
         return self.render_to_response(context)
