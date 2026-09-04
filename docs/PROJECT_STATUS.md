@@ -53,6 +53,10 @@ Tests: full suite passes. Ruff lint clean. All migrations applied.
    - Expand / Collapse toggle button (`☰`) in topbar with compact icon-only mode (`68px`) for maximum screen space.
    - Mobile slide-out navigation drawer with dark backdrop on screens `< 768px`.
    - `localStorage` persistence for user sidebar collapse preference.
+4. **P&L Operational Income Accounting Fix**:
+   - Excluded Owner Capital Deposit (`OWNER_DEPOSIT`) from business revenue / P&L income (opening cash / capital injection is equity/float, not revenue).
+   - Excluded Owner Drawings (`OWNER_WITHDRAWAL`) and Staff Float (`ADVANCE`) from operating expenses.
+   - Today's Income stat on Dashboard now accurately reflects true operational business earnings.
 
 ### Sprint 6 (WhatsApp & Notification Integration) — built
 1. **1-Click WhatsApp Share**: `NotificationService.get_invoice_whatsapp_url()` generates instant `https://wa.me/91XXXXXXXXXX?text=...` links with formatted bill receipt text.

@@ -6,10 +6,11 @@ An ERP platform that combines CRM, Billing, Accounting, Employee Management,
 Inventory, Customer Management, Wallet Engine, Cash Book, Bank Ledger,
 Reporting and Audit — built on Django.
 
-> Status: **Sprint 6 (WhatsApp & Thermal Receipts) complete.** Billing now
-> includes 1-click WhatsApp receipt sharing, 80mm thermal receipt printing,
-> low-stock alerts with owner WhatsApp alerts, full inventory management with
-> Weighted Average Cost (WAC), formula-driven pricing, and customer wallet.
+> Status: **Sprint 7 (Bank Routing, Granular Permissions & Responsive UI) complete.**
+> System now includes default bank routing (AEPS cash withdrawal), granular staff billing
+> and top-up permission toggles (give/revoke), responsive collapsible sidebar with mobile drawer,
+> 1-click WhatsApp receipt sharing, 80mm thermal receipt printing, low-stock WhatsApp alerts,
+> full inventory management with WAC, formula-driven pricing, customer wallet, and gapless audit ledgers.
 
 ---
 
