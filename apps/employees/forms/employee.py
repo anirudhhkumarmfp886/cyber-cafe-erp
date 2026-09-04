@@ -29,6 +29,11 @@ class EmployeeCreateForm(forms.ModelForm):
         label="Billing Access (Can Create Bills)",
         help_text="Allow this employee to create bills and counter invoices regardless of base role.",
     )
+    can_manage_topup = forms.BooleanField(
+        required=False,
+        label="Top-Up & Owner Cash Access",
+        help_text="Allow this employee to perform wallet top-ups and owner cash deposit/withdrawal.",
+    )
 
     class Meta:
         model = Employee
@@ -37,6 +42,7 @@ class EmployeeCreateForm(forms.ModelForm):
             "role",
             "status",
             "can_create_bills",
+            "can_manage_topup",
             "gender",
             "date_of_birth",
             "date_of_joining",
@@ -83,6 +89,11 @@ class EmployeeUpdateForm(forms.ModelForm):
         label="Billing Access (Can Create Bills)",
         help_text="Allow this employee to create bills and counter invoices regardless of base role.",
     )
+    can_manage_topup = forms.BooleanField(
+        required=False,
+        label="Top-Up & Owner Cash Access",
+        help_text="Allow this employee to perform wallet top-ups and owner cash deposit/withdrawal.",
+    )
 
     class Meta:
         model = Employee
@@ -91,6 +102,7 @@ class EmployeeUpdateForm(forms.ModelForm):
             "role",
             "status",
             "can_create_bills",
+            "can_manage_topup",
             "gender",
             "date_of_birth",
             "date_of_joining",
@@ -113,4 +125,5 @@ class EmployeeUpdateForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
             "hourly_rate": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
+
 

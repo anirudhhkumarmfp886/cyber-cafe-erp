@@ -55,18 +55,33 @@
                         <div class="col-md-4">{% include "includes/field.html" with field=form.pincode %}</div>
                     </div>
 
-                    <h6 class="text-uppercase small text-muted fw-semibold mb-3">Permissions &amp; Billing Access</h6>
+                    <h6 class="text-uppercase small text-muted fw-semibold mb-3">Permissions &amp; Access Controls</h6>
                     <div class="row g-3 mb-3">
-                        <div class="col-md-12">
-                            <div class="card border bg-light-subtle shadow-none">
+                        <div class="col-md-6">
+                            <div class="card border bg-light-subtle shadow-none h-100">
                                 <div class="card-body py-3">
                                     <div class="form-check form-switch mb-0">
                                         <input class="form-check-input" type="checkbox" role="switch" name="can_create_bills" id="id_can_create_bills" {% if form.can_create_bills.value %}checked{% endif %}>
                                         <label class="form-check-label fw-semibold ms-2" for="id_can_create_bills">
-                                            <i class="bi bi-receipt text-primary me-1"></i> Allow Billing Access (Bill Banane Ki Permission)
+                                            <i class="bi bi-receipt text-primary me-1"></i> Billing Access (Bill Banane Ki Permission)
                                         </label>
                                         <div class="small text-muted ms-2 mt-1">
-                                            Enable this to grant this staff member permission to create invoices, bills and counter receipts regardless of base role. Uncheck to revoke access.
+                                            Grant permission to create invoices, counter bills and receipts regardless of role.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border bg-light-subtle shadow-none h-100">
+                                <div class="card-body py-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_manage_topup" id="id_can_manage_topup" {% if form.can_manage_topup.value %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold ms-2" for="id_can_manage_topup">
+                                            <i class="bi bi-wallet2 text-warning me-1"></i> Top-Up &amp; Owner Cash Access
+                                        </label>
+                                        <div class="small text-muted ms-2 mt-1">
+                                            Grant permission to perform wallet top-ups and owner cash deposit/withdrawals.
                                         </div>
                                     </div>
                                 </div>

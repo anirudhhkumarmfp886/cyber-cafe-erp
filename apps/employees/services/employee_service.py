@@ -36,6 +36,7 @@ _EDITABLE_FIELDS = (
     "notes",
     "hourly_rate",
     "can_create_bills",
+    "can_manage_topup",
 )
 
 
@@ -101,6 +102,7 @@ class EmployeeService:
             notes=data.get("notes", ""),
             hourly_rate=data.get("hourly_rate") or 0,
             can_create_bills=bool(data.get("can_create_bills", False)),
+            can_manage_topup=bool(data.get("can_manage_topup", False)),
             created_by=by,
             updated_by=by,
         )
@@ -128,6 +130,15 @@ class EmployeeService:
         employee.can_create_bills = not employee.can_create_bills
         employee.updated_by = by
         employee.save(update_fields=["can_create_bills", "updated_by", "updated_at"])
+        sync_employee_permissions(employee)
+        return employee
+
+    @staticmethod
+    def toggle_topup_access(employee: Employee, *, by=None) -> Employee:
+        """Toggle topup & owner cash permission (give/revoke) and sync user permissions."""
+        employee.can_manage_topup = not employee.can_manage_topup
+        employee.updated_by = by
+        employee.save(update_fields=["can_manage_topup", "updated_by", "updated_at"])
         sync_employee_permissions(employee)
         return employee
 

@@ -38,6 +38,14 @@ BILLING_PERMISSION_CODENAMES = {
     "view_customer",
 }
 
+TOPUP_PERMISSION_CODENAMES = {
+    "withdraw_shop_cash",
+    "add_wallettransaction",
+    "view_wallettransaction",
+    "change_wallet",
+    "view_wallet",
+}
+
 
 def get_group_name_for_role(role) -> str:
     return ROLE_GROUP_MAP.get(role, ROLE_GROUP_MAP[Role.STAFF])
@@ -53,16 +61,25 @@ def assign_role_group(user, role) -> Group:
 
 
 def sync_employee_permissions(employee) -> None:
-    """Sync both group membership (from role) and direct user permissions (e.g. can_create_bills)."""
+    """Sync both group membership (from role) and direct user permissions (e.g. can_create_bills, can_manage_topup)."""
     user = employee.user
     assign_role_group(user, employee.role)
+
     billing_perms = list(Permission.objects.filter(codename__in=BILLING_PERMISSION_CODENAMES))
     if getattr(employee, "can_create_bills", False):
         user.user_permissions.add(*billing_perms)
     else:
         user.user_permissions.remove(*billing_perms)
+
+    topup_perms = list(Permission.objects.filter(codename__in=TOPUP_PERMISSION_CODENAMES))
+    if getattr(employee, "can_manage_topup", False):
+        user.user_permissions.add(*topup_perms)
+    else:
+        user.user_permissions.remove(*topup_perms)
+
     # Clear in-memory permission cache on user instance if present
     for attr in ("_perm_cache", "_user_perm_cache", "_group_perm_cache"):
         if hasattr(user, attr):
             delattr(user, attr)
+
 

@@ -129,6 +129,35 @@ class EmployeeViewTests(TestCase):
         self.assertFalse(target.can_create_bills)
         self.assertFalse(target.user.has_perm("billing.add_invoice"))
 
+    def test_toggle_topup_view_grants_and_revokes(self):
+        self.client.login(username="owner-views", password="Password#123")
+        target = EmployeeService.create_employee(
+            data={
+                "username": "toggle-topup-target",
+                "password": "Password#123",
+                "full_name": "Topup Staff",
+                "role": Role.STAFF,
+                "can_manage_topup": False,
+            },
+            by=self.owner,
+        )
+        self.assertFalse(target.user.has_perm("finance.withdraw_shop_cash"))
+
+        # First post grants access
+        response = self.client.post(reverse("employees:toggle_topup", kwargs={"pk": target.pk}))
+        self.assertEqual(response.status_code, 302)
+        target.refresh_from_db()
+        self.assertTrue(target.can_manage_topup)
+        self.assertTrue(target.user.has_perm("finance.withdraw_shop_cash"))
+
+        # Second post revokes access
+        response = self.client.post(reverse("employees:toggle_topup", kwargs={"pk": target.pk}))
+        self.assertEqual(response.status_code, 302)
+        target.refresh_from_db()
+        self.assertFalse(target.can_manage_topup)
+        self.assertFalse(target.user.has_perm("finance.withdraw_shop_cash"))
+
+
 
 
 class SeedRolesCommandTests(TestCase):

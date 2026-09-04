@@ -111,6 +111,7 @@ class Command(BaseCommand):
         cash_expense = {"add_cashbookexpense"}
         cash_withdraw = {"withdraw_shop_cash"}
         cash_full = cash_income | cash_expense | cash_withdraw
+        cash_normal = cash_income | cash_expense
 
         # Work entry: counter staff create a draft and finalize the bill, so
         # they need add + change (no delete). Accountants manage/void entries.
@@ -122,10 +123,10 @@ class Command(BaseCommand):
 
         role_matrix = {
             Role.OWNER: _manage_permissions(all_models) | cash_full,
-            Role.MANAGER: (_manage_permissions(all_models) - custom_field_manage) | cash_full,
+            Role.MANAGER: (_manage_permissions(all_models) - custom_field_manage) | cash_normal,
             Role.ACCOUNTANT: _view_permissions(all_models)
             | _manage_permissions(finance_models | billing_models | workentry_models | inventory_models)
-            | cash_full,
+            | cash_normal,
             Role.CASHIER: _view_permissions(all_models)
             | _create_permissions(billing_models)
             | work_entry_work

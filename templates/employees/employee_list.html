@@ -57,6 +57,11 @@
                                     <i class="bi bi-receipt"></i> Bill
                                 </span>
                             {% endif %}
+                            {% if employee.can_manage_topup %}
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning ms-1" title="Top-Up & Owner Cash Access Granted">
+                                    <i class="bi bi-wallet2"></i> TopUp
+                                </span>
+                            {% endif %}
                         </td>
                         <td>
                             <span class="badge {% if employee.status == 'ACTIVE' %}text-bg-success{% else %}text-bg-secondary{% endif %}">

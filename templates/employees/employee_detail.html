@@ -86,24 +86,25 @@
 
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-white d-flex align-items-center justify-content-between">
-                <h6 class="mb-0 fw-semibold"><i class="bi bi-shield-lock me-1 text-primary"></i>Permissions &amp; Billing Access</h6>
-                {% if employee.can_create_bills %}
-                    <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Billing Allowed</span>
-                {% else %}
-                    <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Billing Disabled</span>
-                {% endif %}
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-shield-lock me-1 text-primary"></i>Permissions &amp; Access Controls</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body d-flex flex-column gap-3">
+                <!-- Billing Access Row -->
                 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-3 bg-light rounded border">
                     <div>
-                        <div class="fw-semibold text-dark">
-                            <i class="bi bi-receipt me-1 text-primary"></i> Counter Bill Creation Access
+                        <div class="fw-semibold text-dark d-flex align-items-center gap-2">
+                            <i class="bi bi-receipt text-primary"></i> Counter Bill Creation Access
+                            {% if employee.can_create_bills %}
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Disabled</span>
+                            {% endif %}
                         </div>
                         <div class="small text-muted mt-1">
                             {% if employee.can_create_bills %}
-                                <span class="text-success fw-medium"><i class="bi bi-check-lg me-1"></i>Is staff ke paas bill banane ka access active hai.</span> Counter par naya bill generate kar sakte hain.
+                                <span class="text-success fw-medium"><i class="bi bi-check-lg me-1"></i>Is employee ke paas bill banane ka access active hai.</span> Counter par naya bill bana sakte hain.
                             {% else %}
-                                <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Is staff ke paas bill banane ka access nahi hai (View-only).</span>
+                                <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Is employee ke paas bill banane ka access nahi hai (View-only).</span>
                             {% endif %}
                         </div>
                     </div>
@@ -112,11 +113,46 @@
                             {% csrf_token %}
                             {% if employee.can_create_bills %}
                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke billing access from {{ employee.full_name }}?')">
-                                    <i class="bi bi-shield-x me-1"></i> Revoke Access
+                                    <i class="bi bi-shield-x me-1"></i> Revoke Billing
                                 </button>
                             {% else %}
                                 <button type="submit" class="btn btn-sm btn-success">
                                     <i class="bi bi-shield-check me-1"></i> Give Billing Access
+                                </button>
+                            {% endif %}
+                        </form>
+                    {% endif %}
+                </div>
+
+                <!-- Top-Up & Owner Cash Row -->
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-3 bg-light rounded border">
+                    <div>
+                        <div class="fw-semibold text-dark d-flex align-items-center gap-2">
+                            <i class="bi bi-wallet2 text-warning"></i> Top-Up &amp; Owner Cash Access
+                            {% if employee.can_manage_topup %}
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Disabled</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted mt-1">
+                            {% if employee.can_manage_topup %}
+                                <span class="text-success fw-medium"><i class="bi bi-check-lg me-1"></i>Is employee ke paas Wallet Top-Up aur Owner Cash Deposit/Withdrawal ki permission hai.</span>
+                            {% else %}
+                                <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Is employee ke paas Top-Up / Owner Cash ka access nahi hai (Sirf Owner kar sakte hain).</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if perms.employees.change_employee %}
+                        <form method="post" action="{% url 'employees:toggle_topup' employee.pk %}" class="mb-0">
+                            {% csrf_token %}
+                            {% if employee.can_manage_topup %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke top-up and owner cash access from {{ employee.full_name }}?')">
+                                    <i class="bi bi-shield-x me-1"></i> Revoke Top-Up
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-sm btn-warning">
+                                    <i class="bi bi-shield-check me-1"></i> Give Top-Up Access
                                 </button>
                             {% endif %}
                         </form>

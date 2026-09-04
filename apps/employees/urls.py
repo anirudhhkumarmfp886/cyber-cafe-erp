@@ -16,5 +16,6 @@ urlpatterns = [
     path("<uuid:pk>/", employee_views.EmployeeDetailView.as_view(), name="detail"),
     path("<uuid:pk>/edit/", employee_views.EmployeeUpdateView.as_view(), name="update"),
     path("<uuid:pk>/toggle-billing/", employee_views.EmployeeToggleBillingView.as_view(), name="toggle_billing"),
+    path("<uuid:pk>/toggle-topup/", employee_views.EmployeeToggleTopupView.as_view(), name="toggle_topup"),
     path("<uuid:pk>/deactivate/", employee_views.EmployeeDeactivateView.as_view(), name="deactivate"),
 ]

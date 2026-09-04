@@ -88,6 +88,13 @@ class Employee(BaseModel):
         help_text="Grant counter billing & invoice creation access regardless of base role.",
     )
 
+    #: Custom toggle for top-up & owner cash permission: allows employee to do wallet topups & owner cash transactions.
+    can_manage_topup = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Grant permission to perform wallet top-ups and owner cash deposit/withdrawal.",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Employee"

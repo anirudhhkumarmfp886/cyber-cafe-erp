@@ -133,3 +133,16 @@ class EmployeeToggleBillingView(LoginRequiredMixin, PermissionRequiredMixin, Vie
         messages.success(request, f"Billing creation permission has been {action_str} {employee.full_name}.")
         return HttpResponseRedirect(reverse_lazy("employees:detail", kwargs={"pk": employee.pk}))
 
+
+class EmployeeToggleTopupView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "employees.change_employee"
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        employee = get_object_or_404(Employee, id=pk)
+        EmployeeService.toggle_topup_access(employee, by=request.user)
+        action_str = "granted to" if employee.can_manage_topup else "revoked from"
+        messages.success(request, f"Top-up & Owner Cash permission has been {action_str} {employee.full_name}.")
+        return HttpResponseRedirect(reverse_lazy("employees:detail", kwargs={"pk": employee.pk}))
+
+

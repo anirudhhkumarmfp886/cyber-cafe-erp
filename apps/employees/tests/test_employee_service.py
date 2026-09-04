@@ -101,3 +101,31 @@ class EmployeeServiceTests(TestCase):
         self.assertFalse(employee.can_create_bills)
         self.assertFalse(employee.user.has_perm("billing.add_invoice"))
 
+    def test_can_manage_topup_grants_and_revokes_permissions(self):
+        employee = EmployeeService.create_employee(
+            data=self._payload(can_manage_topup=True), by=self.owner
+        )
+        self.assertTrue(employee.can_manage_topup)
+        self.assertTrue(employee.user.has_perm("finance.withdraw_shop_cash"))
+        self.assertTrue(employee.user.has_perm("employees.add_wallettransaction"))
+
+        EmployeeService.update_employee(employee, data={"can_manage_topup": False}, by=self.owner)
+        employee.refresh_from_db()
+        self.assertFalse(employee.can_manage_topup)
+        self.assertFalse(employee.user.has_perm("finance.withdraw_shop_cash"))
+
+    def test_toggle_topup_access(self):
+        employee = EmployeeService.create_employee(
+            data=self._payload(can_manage_topup=False), by=self.owner
+        )
+        self.assertFalse(employee.user.has_perm("finance.withdraw_shop_cash"))
+
+        EmployeeService.toggle_topup_access(employee, by=self.owner)
+        self.assertTrue(employee.can_manage_topup)
+        self.assertTrue(employee.user.has_perm("finance.withdraw_shop_cash"))
+
+        EmployeeService.toggle_topup_access(employee, by=self.owner)
+        self.assertFalse(employee.can_manage_topup)
+        self.assertFalse(employee.user.has_perm("finance.withdraw_shop_cash"))
+
+
