@@ -11,7 +11,7 @@ from apps.customers.services.customer_service import CustomerService
 from apps.employees.models import Role, WalletType
 from apps.employees.services.employee_service import EmployeeService
 from apps.employees.services.wallet_service import WalletService
-from apps.finance.models import BankTransaction, CashBookEntry
+from apps.finance.models import BankAccount, BankTransaction, CashBookEntry
 from apps.finance.models.enums import BankTransactionCategory, CashEntryCategory
 from apps.finance.services.bank_service import BankService
 from apps.services.services.service_service import ServiceService
@@ -111,12 +111,12 @@ class SplitPaymentTests(TestCase):
         self.assertEqual(deposits.first().amount, Decimal("1300"))
 
         # Cash book: only the cash leg is income here (UPI lives in the bank);
-        # commission is booked, and the cash handed out is the matching expense.
+        # the cash handed out is the matching expense.
         self.assertEqual(
             CashBookEntry.objects.get(category=CashEntryCategory.SALES).amount, Decimal("40")
         )
-        self.assertEqual(
-            CashBookEntry.objects.get(category=CashEntryCategory.COMMISSION).amount, Decimal("40")
+        self.assertFalse(
+            CashBookEntry.objects.filter(category=CashEntryCategory.COMMISSION).exists()
         )
         self.assertEqual(
             CashBookEntry.objects.get(category=CashEntryCategory.CASH_OUT).amount, Decimal("1000")
@@ -182,7 +182,17 @@ class SplitPaymentTests(TestCase):
                 by=self.staff,
             )
 
-    def test_upi_payment_requires_bank_account(self):
+    def test_upi_payment_auto_defaults_to_active_bank_account(self):
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "UPI"},
+            lines=[{"service": self.gaming, "qty": 1}],
+            payments=[{"mode": "UPI", "amount": "300", "bank_account": None}],
+            by=self.staff,
+        )
+        self.assertEqual(invoice.payments.get().bank_account, self.account)
+
+    def test_upi_payment_requires_bank_account_when_none_exist(self):
+        BankAccount.objects.all().delete()
         with self.assertRaisesMessage(ValueError, "need a shop bank account"):
             BillingService.create_invoice(
                 data={"payment_mode": "UPI"},

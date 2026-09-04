@@ -36,7 +36,12 @@ class NotificationService:
         for line in invoice.lines.all():
             qty_val = int(line.qty) if line.qty == int(line.qty) else line.qty
             qty_str = f" x {qty_val}" if qty_val != 1 else ""
-            lines_text.append(f"• {line.description}{qty_str} — ₹{line.amount}")
+            line_str = f"• {line.description}{qty_str} — ₹{line.amount}"
+            if line.pass_through_amount > 0:
+                line_str += f"\n  (Cash Given: ₹{line.pass_through_amount} | Fee: ₹{line.income_amount})"
+            elif line.withdrawal_summary:
+                line_str += f"\n  ({line.withdrawal_summary})"
+            lines_text.append(line_str)
 
         items_block = "\n".join(lines_text) if lines_text else "• Services"
 
@@ -55,8 +60,8 @@ class NotificationService:
             f"*Status:* {paid_status} ({payment_mode_str})\n"
         )
 
-        if invoice.status != "PAID" and hasattr(invoice, "balance_due") and invoice.balance_due > 0:
-            message += f"*Balance Due:* ₹{invoice.balance_due}\n"
+        if invoice.status != "PAID" and hasattr(invoice, "outstanding_amount") and invoice.outstanding_amount > 0:
+            message += f"*Balance Due:* ₹{invoice.outstanding_amount}\n"
 
         message += "\nThank you for visiting AK Nazar Cyber Cafe! 🙏"
         return message

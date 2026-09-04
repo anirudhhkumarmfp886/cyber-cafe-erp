@@ -15,6 +15,14 @@ class BankSelector:
         return BankAccount.objects.filter(id=account_id).first()
 
     @staticmethod
+    def get_default_account():
+        """Returns the default active bank account, or the first active one."""
+        return (
+            BankAccount.objects.filter(is_active=True, is_default=True).first()
+            or BankAccount.objects.filter(is_active=True).order_by("account_name").first()
+        )
+
+    @staticmethod
     def transactions(account, limit: int = 150):
         return account.transactions.order_by("-entry_date", "-created_at")[:limit]
 

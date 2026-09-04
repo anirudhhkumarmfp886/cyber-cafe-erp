@@ -15,6 +15,7 @@ class BankAccountForm(forms.ModelForm):
             "ifsc_code",
             "account_type",
             "opening_balance",
+            "is_default",
         ]
         widgets = {
             "account_name": forms.TextInput(attrs={"class": "form-control"}),
@@ -24,11 +25,13 @@ class BankAccountForm(forms.ModelForm):
             "ifsc_code": forms.TextInput(attrs={"class": "form-control"}),
             "account_type": forms.Select(attrs={"class": "form-select"}),
             "opening_balance": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "placeholder": "0.00"}),
+            "is_default": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["opening_balance"].required = False
+        self.fields["is_default"].label = "Set as default shop bank account (for UPI QR & general billing)"
 
 
 class BankDepositForm(forms.Form):

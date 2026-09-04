@@ -74,3 +74,30 @@ class EmployeeServiceTests(TestCase):
         self.assertIsNone(employee.deleted_at)
         employee.user.refresh_from_db()
         self.assertTrue(employee.user.is_active)
+
+    def test_can_create_bills_grants_and_revokes_permissions(self):
+        employee = EmployeeService.create_employee(
+            data=self._payload(can_create_bills=True), by=self.owner
+        )
+        self.assertTrue(employee.can_create_bills)
+        self.assertTrue(employee.user.has_perm("billing.add_invoice"))
+
+        EmployeeService.update_employee(employee, data={"can_create_bills": False}, by=self.owner)
+        employee.refresh_from_db()
+        self.assertFalse(employee.can_create_bills)
+        self.assertFalse(employee.user.has_perm("billing.add_invoice"))
+
+    def test_toggle_billing_access(self):
+        employee = EmployeeService.create_employee(
+            data=self._payload(can_create_bills=False), by=self.owner
+        )
+        self.assertFalse(employee.user.has_perm("billing.add_invoice"))
+
+        EmployeeService.toggle_billing_access(employee, by=self.owner)
+        self.assertTrue(employee.can_create_bills)
+        self.assertTrue(employee.user.has_perm("billing.add_invoice"))
+
+        EmployeeService.toggle_billing_access(employee, by=self.owner)
+        self.assertFalse(employee.can_create_bills)
+        self.assertFalse(employee.user.has_perm("billing.add_invoice"))
+

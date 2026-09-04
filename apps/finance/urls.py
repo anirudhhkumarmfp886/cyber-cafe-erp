@@ -11,4 +11,5 @@ urlpatterns = [
     path("cashbook/<uuid:pk>/delete/", cashbook_views.CashBookDeleteView.as_view(), name="cashbook_delete"),
     path("bank/", bank_views.BankAccountListView.as_view(), name="bank_list"),
     path("bank/<uuid:pk>/", bank_views.BankAccountDetailView.as_view(), name="bank_detail"),
+    path("bank/<uuid:pk>/set-default/", bank_views.SetDefaultBankAccountView.as_view(), name="bank_set_default"),
 ]

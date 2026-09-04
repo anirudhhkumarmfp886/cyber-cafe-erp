@@ -81,6 +81,14 @@ class Service(BaseModel):
         blank=True,
         help_text="Optional formula for what the shop keeps. Leave blank to keep the whole line amount.",
     )
+    default_bank_account = models.ForeignKey(
+        "finance.BankAccount",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="services",
+        help_text="Default/dedicated bank account for this service (e.g. AEPS CBI account)",
+    )
 
     class Meta:
         ordering = ["category__name", "name"]

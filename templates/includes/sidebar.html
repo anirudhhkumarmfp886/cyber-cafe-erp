@@ -1,86 +1,103 @@
-<aside class="app-sidebar d-flex flex-column flex-shrink-0 p-3">
-    <a href="{% url 'pages:dashboard' %}" class="sidebar-brand d-flex align-items-center mb-3 mb-md-0 me-md-auto text-decoration-none">
-        <i class="bi bi-joystick fs-4 me-2"></i>
-        <span class="fs-6 fw-bold">AK Nazar <span class="text-warning">Cyber Cafe</span></span>
-    </a>
-    <hr class="sidebar-divider">
+<aside class="app-sidebar d-flex flex-column flex-shrink-0 p-3" id="appSidebar">
+    <div class="sidebar-header d-flex align-items-center justify-content-between mb-2">
+        <a href="{% url 'pages:dashboard' %}" class="sidebar-brand d-flex align-items-center text-decoration-none">
+            <i class="bi bi-joystick fs-4 brand-icon me-2"></i>
+            <span class="fs-6 fw-bold brand-text">AK Nazar <span class="text-warning">Cyber Cafe</span></span>
+        </a>
+        <button type="button" class="btn btn-sm text-white-50 border-0 p-1 d-md-none" id="sidebarClose" aria-label="Close sidebar">
+            <i class="bi bi-x-lg fs-5"></i>
+        </button>
+    </div>
+    <hr class="sidebar-divider my-2">
     <ul class="nav nav-pills flex-column mb-auto gap-1">
         <li class="nav-item">
             <a href="{% url 'pages:dashboard' %}"
                class="nav-link {% if request.resolver_match.app_name == 'pages' %}active{% endif %}"
+               title="Dashboard"
                aria-current="page">
-                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                <i class="bi bi-speedometer2 nav-icon me-2"></i><span class="nav-text">Dashboard</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'employees:list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'employees' %}active{% endif %}">
-                <i class="bi bi-people me-2"></i>Employees
+               class="nav-link {% if request.resolver_match.app_name == 'employees' and request.resolver_match.url_name != 'wallet_list' and request.resolver_match.url_name != 'wallet_detail' and request.resolver_match.url_name != 'worklog_list' %}active{% endif %}"
+               title="Employees">
+                <i class="bi bi-people nav-icon me-2"></i><span class="nav-text">Employees</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'employees:wallet_list' %}"
-               class="nav-link {% if request.resolver_match.url_name == 'wallet_list' or request.resolver_match.url_name == 'wallet_detail' %}active{% endif %}">
-                <i class="bi bi-wallet2 me-2"></i>Wallet Engine
+               class="nav-link {% if request.resolver_match.url_name == 'wallet_list' or request.resolver_match.url_name == 'wallet_detail' %}active{% endif %}"
+               title="Wallet Engine">
+                <i class="bi bi-wallet2 nav-icon me-2"></i><span class="nav-text">Wallet Engine</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'finance:cashbook_list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'finance' and request.resolver_match.url_name == 'cashbook_list' %}active{% endif %}">
-                <i class="bi bi-cash-coin me-2"></i>Cash Book
+               class="nav-link {% if request.resolver_match.app_name == 'finance' and request.resolver_match.url_name == 'cashbook_list' %}active{% endif %}"
+               title="Cash Book">
+                <i class="bi bi-cash-coin nav-icon me-2"></i><span class="nav-text">Cash Book</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'finance:bank_list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'finance' and request.resolver_match.url_name == 'bank_list' %}active{% endif %}">
-                <i class="bi bi-bank me-2"></i>Bank Ledger
+               class="nav-link {% if request.resolver_match.app_name == 'finance' and request.resolver_match.url_name == 'bank_list' %}active{% endif %}"
+               title="Bank Ledger">
+                <i class="bi bi-bank nav-icon me-2"></i><span class="nav-text">Bank Ledger</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'employees:worklog_list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'employees' and request.resolver_match.url_name == 'worklog_list' %}active{% endif %}">
-                <i class="bi bi-calendar-check me-2"></i>Daily Work Log
+               class="nav-link {% if request.resolver_match.app_name == 'employees' and request.resolver_match.url_name == 'worklog_list' %}active{% endif %}"
+               title="Daily Work Log">
+                <i class="bi bi-calendar-check nav-icon me-2"></i><span class="nav-text">Daily Work Log</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'customers:list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'customers' %}active{% endif %}">
-                <i class="bi bi-person-vcard me-2"></i>Customers
+               class="nav-link {% if request.resolver_match.app_name == 'customers' %}active{% endif %}"
+               title="Customers">
+                <i class="bi bi-person-vcard nav-icon me-2"></i><span class="nav-text">Customers</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'services:list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'services' %}active{% endif %}">
-                <i class="bi bi-box-seam me-2"></i>Services
+               class="nav-link {% if request.resolver_match.app_name == 'services' %}active{% endif %}"
+               title="Services">
+                <i class="bi bi-box-seam nav-icon me-2"></i><span class="nav-text">Services</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'billing:list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'billing' %}active{% endif %}">
-                <i class="bi bi-receipt me-2"></i>Billing
+               class="nav-link {% if request.resolver_match.app_name == 'billing' %}active{% endif %}"
+               title="Billing">
+                <i class="bi bi-receipt nav-icon me-2"></i><span class="nav-text">Billing</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'reports:index' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}">
-                <i class="bi bi-graph-up me-2"></i>Reports
+               class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}"
+               title="Reports">
+                <i class="bi bi-graph-up nav-icon me-2"></i><span class="nav-text">Reports</span>
             </a>
         </li>
         <li class="nav-item">
             <a href="{% url 'inventory:list' %}"
-               class="nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}">
-                <i class="bi bi-boxes me-2"></i>Inventory
+               class="nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}"
+               title="Inventory">
+                <i class="bi bi-boxes nav-icon me-2"></i><span class="nav-text">Inventory</span>
             </a>
         </li>
     </ul>
-    <hr class="sidebar-divider">
+    <hr class="sidebar-divider my-2">
     <div class="dropdown">
-        <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-white" data-bs-toggle="dropdown">
-            <i class="bi bi-shield-lock me-2"></i>
-            <span class="small">Admin Panel</span>
+        <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-white" data-bs-toggle="dropdown" title="Admin Panel">
+            <i class="bi bi-shield-lock nav-icon me-2"></i>
+            <span class="small nav-text">Admin Panel</span>
         </a>
         <ul class="dropdown-menu dropdown-menu-dark">
             <li><a class="dropdown-item" href="{% url 'admin:index' %}">Django Admin</a></li>
         </ul>
     </div>
 </aside>
+

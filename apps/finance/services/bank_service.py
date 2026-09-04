@@ -19,6 +19,7 @@ from apps.finance.models.enums import (
 
 class BankService:
     @staticmethod
+    @transaction.atomic
     def create_account(
         *,
         account_name: str,
@@ -28,12 +29,17 @@ class BankService:
         branch: str = "",
         account_type: str = "CURRENT",
         opening_balance=0,
+        is_default: bool = False,
         by=None,
     ) -> BankAccount:
         if not account_name or not bank_name or not account_number:
             raise ValueError("Account name, bank name and account number are required.")
         if opening_balance < 0:
             raise ValueError("Opening balance cannot be negative.")
+        if is_default:
+            BankAccount.objects.filter(is_default=True).update(is_default=False)
+        elif not BankAccount.objects.filter(is_default=True).exists():
+            is_default = True
         return BankAccount.objects.create(
             account_name=account_name,
             bank_name=bank_name,
@@ -42,9 +48,20 @@ class BankService:
             branch=branch,
             account_type=account_type,
             opening_balance=opening_balance,
+            is_default=is_default,
             created_by=by,
             updated_by=by,
         )
+
+    @staticmethod
+    @transaction.atomic
+    def set_default_account(account: BankAccount, by=None) -> BankAccount:
+        """Mark an account as default and unset all other default accounts."""
+        BankAccount.objects.filter(is_default=True).exclude(pk=account.pk).update(is_default=False)
+        account.is_default = True
+        account.updated_by = by
+        account.save(update_fields=["is_default", "updated_by", "updated_at"])
+        return account
 
     @staticmethod
     def balance_of(account: BankAccount):

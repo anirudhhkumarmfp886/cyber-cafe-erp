@@ -55,11 +55,31 @@
                         <div class="col-md-4">{% include "includes/field.html" with field=form.pincode %}</div>
                     </div>
 
+                    <h6 class="text-uppercase small text-muted fw-semibold mb-3">Permissions &amp; Billing Access</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <div class="card border bg-light-subtle shadow-none">
+                                <div class="card-body py-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_create_bills" id="id_can_create_bills" {% if form.can_create_bills.value %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold ms-2" for="id_can_create_bills">
+                                            <i class="bi bi-receipt text-primary me-1"></i> Allow Billing Access (Bill Banane Ki Permission)
+                                        </label>
+                                        <div class="small text-muted ms-2 mt-1">
+                                            Enable this to grant this staff member permission to create invoices, bills and counter receipts regardless of base role. Uncheck to revoke access.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <h6 class="text-uppercase small text-muted fw-semibold mb-3">Identity &amp; Notes</h6>
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">{% include "includes/field.html" with field=form.id_proof_type %}</div>
                         <div class="col-md-8">{% include "includes/field.html" with field=form.id_proof_number %}</div>
-                        <div class="col-md-12">{% include "includes/field.html" with field=form.notes %}</div>
+                        <div class="col-md-4">{% include "includes/field.html" with field=form.hourly_rate %}</div>
+                        <div class="col-md-8">{% include "includes/field.html" with field=form.notes %}</div>
                     </div>
 
                     <div class="d-flex gap-2 mt-4">

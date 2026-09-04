@@ -54,6 +54,7 @@ from apps.customers.models import Customer
 from apps.employees.models import WalletTransactionCategory, WalletType
 from apps.employees.services.wallet_service import WalletService
 from apps.finance.models import BankAccount
+from apps.finance.selectors.bank_selector import BankSelector
 from apps.finance.models.enums import (
     BankTransactionCategory,
     CashEntryCategory,
@@ -136,7 +137,7 @@ class BillingService:
             if payment_mode == InvoicePaymentMode.CREDIT:
                 payments = []
             else:
-                payments = [{"mode": payment_mode, "amount": total, "bank_account": None}]
+                payments = [{"mode": payment_mode, "amount": total, "bank_account": data.get("bank_account")}]
 
         cleaned_payments = []
         for raw in payments:
@@ -269,7 +270,11 @@ class BillingService:
                 else:
                     bank_account = payment["bank_account"] or withdrawal_default_bank
                     if bank_account is None:
-                        raise ValueError("UPI / bank payments need a shop bank account.")
+                        bank_account = BankSelector.get_default_account()
+                    if bank_account is None:
+                        raise ValueError(
+                            "UPI / bank payments need a shop bank account. Please create one in Finance > Bank Accounts first."
+                        )
                     bank_account = BankAccount.objects.select_for_update().get(pk=bank_account.pk)
                     bank_txn = BankService.deposit(
                         account=bank_account,
@@ -324,6 +329,7 @@ class BillingService:
         field_values, variables, transfer, percent_value, bank_account = (
             BillingService._resolve_custom_fields(service, qty, custom, by)
         )
+        bank_account = bank_account or service.default_bank_account
 
         if service.total_formula and service.total_formula.strip():
             amount = BillingService._evaluate_formula(service.total_formula, variables, service)
@@ -409,9 +415,15 @@ class BillingService:
 
             if field.field_type == CustomFieldType.BANK_ACCOUNT:
                 if raw:
-                    account = BankAccount.objects.filter(id=str(raw)).first()
+                    account = (
+                        raw
+                        if isinstance(raw, BankAccount)
+                        else BankAccount.objects.filter(id=str(raw)).first()
+                    )
                     if account is None:
                         raise ValueError(f"Invalid bank account for '{field.label}'.")
+                elif service.default_bank_account:
+                    account = service.default_bank_account
                 if field.required and account is None:
                     raise ValueError(f"'{field.label}' is required for {service.name}.")
                 bank_account = account
@@ -528,17 +540,6 @@ class BillingService:
                 by=by,
                 staff=staff,
             )
-            if income > 0:
-                entry = CashBookService.record_income(
-                    amount=income,
-                    category=CashEntryCategory.COMMISSION,
-                    payment_mode="BANK_TRANSFER",
-                    party_name=party_name,
-                    description=f"Pass-through income ({reference})",
-                    by=by,
-                )
-                if line.cash_entry_id is None:
-                    line.cash_entry_id = entry.id
         elif passthrough_type == ServicePassThroughType.ONLINE:
             if staff is not None:
                 wallet = WalletService.get_or_create_wallet(staff, WalletType.ONLINE)

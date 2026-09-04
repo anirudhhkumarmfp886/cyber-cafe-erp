@@ -31,6 +31,14 @@
                 <div class="col-md-3">{% include "includes/field.html" with field=account_form.ifsc_code %}</div>
                 <div class="col-md-3">{% include "includes/field.html" with field=account_form.branch %}</div>
                 <div class="col-md-3">{% include "includes/field.html" with field=account_form.opening_balance %}</div>
+                <div class="col-md-3 d-flex align-items-center pt-4">
+                    <div class="form-check">
+                        {{ account_form.is_default }}
+                        <label class="form-check-label small fw-semibold" for="{{ account_form.is_default.id_for_label }}">
+                            <i class="bi bi-star-fill text-warning me-1"></i>Set as Default Shop UPI Account
+                        </label>
+                    </div>
+                </div>
                 <div class="col-12">
                     <button type="submit" class="btn btn-primary"><i class="bi bi-bank me-1"></i>Create Account</button>
                 </div>
@@ -55,15 +63,30 @@
             <tbody>
                 {% for account in accounts %}
                     <tr>
-                        <td class="fw-semibold">{{ account.account_name }}</td>
+                        <td>
+                            <span class="fw-semibold">{{ account.account_name }}</span>
+                            {% if account.is_default %}
+                                <span class="badge bg-success ms-2"><i class="bi bi-star-fill me-1"></i>Default Shop UPI</span>
+                            {% endif %}
+                        </td>
                         <td>{{ account.bank_name }}</td>
                         <td class="small text-muted">{{ account.account_number }}</td>
                         <td><span class="badge text-bg-light border">{{ account.get_account_type_display }}</span></td>
                         <td class="text-end fw-semibold {% if account.balance < 0 %}text-danger{% endif %}">{{ account.balance|inr }}</td>
                         <td class="text-end">
-                            <a href="{% url 'finance:bank_detail' account.pk %}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-receipt me-1"></i>Ledger
-                            </a>
+                            <div class="d-inline-flex gap-1">
+                                {% if not account.is_default and perms.finance.change_bankaccount %}
+                                    <form method="post" action="{% url 'finance:bank_set_default' account.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Set as default shop bank for UPI QR">
+                                            <i class="bi bi-star me-1"></i>Make Default
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                <a href="{% url 'finance:bank_detail' account.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-receipt me-1"></i>Ledger
+                                </a>
+                            </div>
                         </td>
                     </tr>
                 {% empty %}

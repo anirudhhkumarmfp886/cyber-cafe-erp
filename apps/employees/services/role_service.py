@@ -6,7 +6,7 @@ the built-in permission framework enforces authorization. This is the
 single source of truth for the mapping; the ``seed_roles`` management
 command materialises the groups and their permissions.
 """
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 
 from apps.employees.models import Role
 
@@ -21,6 +21,23 @@ ROLE_GROUP_MAP = {
 
 ALL_ROLE_GROUPS = set(ROLE_GROUP_MAP.values())
 
+BILLING_PERMISSION_CODENAMES = {
+    "add_invoice",
+    "view_invoice",
+    "add_invoiceline",
+    "view_invoiceline",
+    "add_invoicepayment",
+    "view_invoicepayment",
+    "add_cashout",
+    "view_cashout",
+    "add_workentry",
+    "change_workentry",
+    "view_workentry",
+    "add_cashbookincome",
+    "add_customer",
+    "view_customer",
+}
+
 
 def get_group_name_for_role(role) -> str:
     return ROLE_GROUP_MAP.get(role, ROLE_GROUP_MAP[Role.STAFF])
@@ -33,3 +50,19 @@ def assign_role_group(user, role) -> Group:
     group, _ = Group.objects.get_or_create(name=get_group_name_for_role(role))
     user.groups.add(group)
     return group
+
+
+def sync_employee_permissions(employee) -> None:
+    """Sync both group membership (from role) and direct user permissions (e.g. can_create_bills)."""
+    user = employee.user
+    assign_role_group(user, employee.role)
+    billing_perms = list(Permission.objects.filter(codename__in=BILLING_PERMISSION_CODENAMES))
+    if getattr(employee, "can_create_bills", False):
+        user.user_permissions.add(*billing_perms)
+    else:
+        user.user_permissions.remove(*billing_perms)
+    # Clear in-memory permission cache on user instance if present
+    for attr in ("_perm_cache", "_user_perm_cache", "_group_perm_cache"):
+        if hasattr(user, attr):
+            delattr(user, attr)
+

@@ -50,7 +50,14 @@
                                 </div>
                             </div>
                         </td>
-                        <td><span class="badge text-bg-{% if employee.is_supervisor %}warning{% else %}info{% endif %}">{{ employee.get_role_display }}</span></td>
+                        <td>
+                            <span class="badge text-bg-{% if employee.is_supervisor %}warning{% else %}info{% endif %}">{{ employee.get_role_display }}</span>
+                            {% if employee.can_create_bills %}
+                                <span class="badge bg-success-subtle text-success border border-success ms-1" title="Billing Access Granted">
+                                    <i class="bi bi-receipt"></i> Bill
+                                </span>
+                            {% endif %}
+                        </td>
                         <td>
                             <span class="badge {% if employee.status == 'ACTIVE' %}text-bg-success{% else %}text-bg-secondary{% endif %}">
                                 {{ employee.get_status_display }}

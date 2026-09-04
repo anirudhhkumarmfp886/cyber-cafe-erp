@@ -24,12 +24,19 @@ class EmployeeCreateForm(forms.ModelForm):
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"})
     )
 
+    can_create_bills = forms.BooleanField(
+        required=False,
+        label="Billing Access (Can Create Bills)",
+        help_text="Allow this employee to create bills and counter invoices regardless of base role.",
+    )
+
     class Meta:
         model = Employee
         fields = [
             "full_name",
             "role",
             "status",
+            "can_create_bills",
             "gender",
             "date_of_birth",
             "date_of_joining",
@@ -71,12 +78,19 @@ class EmployeeCreateForm(forms.ModelForm):
 class EmployeeUpdateForm(forms.ModelForm):
     """Editing an employee; credentials are managed separately."""
 
+    can_create_bills = forms.BooleanField(
+        required=False,
+        label="Billing Access (Can Create Bills)",
+        help_text="Allow this employee to create bills and counter invoices regardless of base role.",
+    )
+
     class Meta:
         model = Employee
         fields = [
             "full_name",
             "role",
             "status",
+            "can_create_bills",
             "gender",
             "date_of_birth",
             "date_of_joining",
@@ -99,3 +113,4 @@ class EmployeeUpdateForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
             "hourly_rate": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
+

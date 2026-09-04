@@ -41,9 +41,9 @@
                 {% endif %}
                 <div class="row g-3">
                     <div class="col-md-4">{% include "includes/field.html" with field=invoice_form.customer %}</div>
-                    <div class="col-md-3">{% include "includes/field.html" with field=invoice_form.payment_mode %}</div>
-                    <div class="col-md-2">{% include "includes/field.html" with field=invoice_form.discount %}</div>
-                    <div class="col-md-3">{% include "includes/field.html" with field=invoice_form.notes %}</div>
+                    <div class="col-md-2">{% include "includes/field.html" with field=invoice_form.payment_mode %}</div>
+                    <div class="col-md-3">{% include "includes/field.html" with field=invoice_form.bank_account %}</div>
+                    <div class="col-md-3">{% include "includes/field.html" with field=invoice_form.discount %}</div>
                 </div>
                 <div class="row g-3 mt-0">
                     <div class="col-md-4">{% include "includes/field.html" with field=invoice_form.customer_name %}</div>
@@ -59,6 +59,7 @@
                             <span class="small text-muted">Name only — you don't have permission to create customer records.</span>
                         {% endif %}
                     </div>
+                    <div class="col-md-5">{% include "includes/field.html" with field=invoice_form.notes %}</div>
                 </div>
 
                 <div class="mt-2">
@@ -204,6 +205,9 @@
                     const o = document.createElement('option');
                     o.value = acc.id;
                     o.textContent = acc.name;
+                    if (f.default_account_id && f.default_account_id === acc.id) {
+                        o.selected = true;
+                    }
                     control.appendChild(o);
                 });
             } else {

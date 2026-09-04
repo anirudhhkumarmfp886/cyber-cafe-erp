@@ -4,6 +4,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import DetailView, ListView
 
 from apps.finance.forms.bank import (
@@ -55,6 +56,7 @@ class BankAccountListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
                     branch=data.get("branch", ""),
                     account_type=data["account_type"],
                     opening_balance=data.get("opening_balance") or 0,
+                    is_default=data.get("is_default", False),
                     by=request.user,
                 )
                 messages.success(request, f"Account {account.account_name} created.")
@@ -64,6 +66,16 @@ class BankAccountListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
                 return self.get_form_error_response(form)
         else:
             return self.get_form_error_response(form)
+        return HttpResponseRedirect(reverse_lazy("finance:bank_list"))
+
+
+class SetDefaultBankAccountView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "finance.change_bankaccount"
+
+    def post(self, request, pk):
+        account = get_object_or_404(BankAccount, id=pk)
+        BankService.set_default_account(account, by=request.user)
+        messages.success(request, f"'{account.account_name}' ({account.bank_name}) is now the default shop bank account.")
         return HttpResponseRedirect(reverse_lazy("finance:bank_list"))
 
 

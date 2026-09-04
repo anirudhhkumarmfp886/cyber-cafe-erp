@@ -81,6 +81,13 @@ class Employee(BaseModel):
     #: Standard hourly wage used by the Daily Work Log to auto-credit salary.
     hourly_rate = money_field(default=0, blank=True)
 
+    #: Custom toggle for billing permission: allows any staff to create bills/invoices.
+    can_create_bills = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Grant counter billing & invoice creation access regardless of base role.",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Employee"

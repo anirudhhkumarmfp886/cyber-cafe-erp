@@ -31,6 +31,10 @@ class BankAccount(BaseModel):
         default=BankAccountType.CURRENT,
     )
     opening_balance = money_field(default=0)
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Default shop bank account for general UPI QR and online payments",
+    )
 
     class Meta:
         ordering = ["account_name"]

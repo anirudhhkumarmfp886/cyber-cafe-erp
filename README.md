@@ -66,6 +66,7 @@ apps/
 | 4.5    | Formula-driven pricing, Customer Wallet, P&L income fix | ✅ Done |
 | 5      | Inventory (Stock In/Out, WAC, Low-Stock Alerts, Cash Book Integration) | ✅ Done |
 | 6      | 1-Click WhatsApp Share, Thermal Receipts (80mm), Low-Stock WhatsApp Alerts | ✅ Done |
+| 7      | Bank Routing (AEPS Default), Staff Billing Permissions (Give/Revoke), Responsive UI | ✅ Done |
 
 ---
 

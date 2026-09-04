@@ -73,6 +73,7 @@ class ServiceSelector:
                 "help_text": field.help_text,
             }
             if field.field_type == "BANK_ACCOUNT":
+                item["default_account_id"] = str(service.default_bank_account_id) if service.default_bank_account_id else ""
                 item["bank_accounts"] = [
                     {"id": str(acc.pk), "name": f"{acc.account_name} ({acc.bank_name})"}
                     for acc in ServiceSelector.bank_accounts()

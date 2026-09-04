@@ -126,10 +126,10 @@ class BillingPermissionTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Invoice.objects.exists())
 
-    def test_staff_cannot_create_invoice(self):
+    def test_staff_can_create_invoice(self):
         self.client.login(username="staff", password="StrongPass#123")
         data = {"customer": "", "payment_mode": "CASH", "discount": "0", "notes": ""}
         data.update(_line_formset_data(self.gaming.pk, 1))
         response = self.client.post(reverse("billing:list"), data)
-        self.assertEqual(response.status_code, 403)
-        self.assertFalse(Invoice.objects.exists())
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Invoice.objects.exists())

@@ -101,6 +101,35 @@ class EmployeeViewTests(TestCase):
         self.assertIsNotNone(target.deleted_at)
         self.assertFalse(target.is_active)
 
+    def test_toggle_billing_view_grants_and_revokes(self):
+        self.client.login(username="owner-views", password="Password#123")
+        target = EmployeeService.create_employee(
+            data={
+                "username": "toggle-target",
+                "password": "Password#123",
+                "full_name": "Toggle Staff",
+                "role": Role.STAFF,
+                "can_create_bills": False,
+            },
+            by=self.owner,
+        )
+        self.assertFalse(target.user.has_perm("billing.add_invoice"))
+
+        # First post grants access
+        response = self.client.post(reverse("employees:toggle_billing", kwargs={"pk": target.pk}))
+        self.assertEqual(response.status_code, 302)
+        target.refresh_from_db()
+        self.assertTrue(target.can_create_bills)
+        self.assertTrue(target.user.has_perm("billing.add_invoice"))
+
+        # Second post revokes access
+        response = self.client.post(reverse("employees:toggle_billing", kwargs={"pk": target.pk}))
+        self.assertEqual(response.status_code, 302)
+        target.refresh_from_db()
+        self.assertFalse(target.can_create_bills)
+        self.assertFalse(target.user.has_perm("billing.add_invoice"))
+
+
 
 class SeedRolesCommandTests(TestCase):
     def test_seed_roles_creates_groups(self):

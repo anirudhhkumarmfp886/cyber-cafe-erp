@@ -32,8 +32,26 @@ selectors, views stay thin.
 | 4.5 | Formula billing, Customer Wallet, Invoice consolidation, P&L income fix | **Done** |
 | 5 | Inventory (Stock In/Out, WAC, Low-Stock Alerts, Cash Book Integration) | **Done** |
 | 6 | 1-Click WhatsApp Share, Thermal Receipts, Low-Stock Owner Alerts | **Done** |
+| 7 | Bank Routing (AEPS Default), Staff Billing Permissions (Give/Revoke), Responsive UI | **Done** |
 
-Tests: full suite passes (300 tests). Ruff lint clean. All migrations applied.
+Tests: full suite passes. Ruff lint clean. All migrations applied.
+
+### Sprint 7 (Bank Routing, Granular Permissions & UI Excellence) — built
+1. **Per-Service & Global Default Bank Routing**:
+   - Added `is_default` flag to `BankAccount` with single-active default enforcement.
+   - Added `default_bank_account` to `Service` for automatic bank ledger routing (e.g., AEPS cash withdrawal routes directly to CBI bank account).
+   - Added header-level Bank Account dropdown in `/billing/` for instant UPI/Bank selection without opening split payment dialogs.
+   - Enhanced thermal POS receipt (80mm) and WhatsApp receipt sharing with explicit cash withdrawal, commission/fee breakdowns, and accurate net totals.
+2. **Staff Billing Permissions (Give / Revoke Access)**:
+   - Added `can_create_bills` toggle on `Employee` model.
+   - Dynamic permission synchronization (`sync_employee_permissions`) to grant/revoke invoice creation permissions (`billing.add_invoice`, `add_invoiceline`, `add_invoicepayment`, `add_cashout`, `workentry`, `cashbookincome`) without altering base roles (`Role.STAFF`).
+   - 1-Click Give/Revoke toggle button on Employee Detail view (`/employees/<id>/`).
+   - Switch in Add/Edit Employee forms and `[Bill]` status badge in Employee List.
+3. **Responsive Shell & Collapsible Sidebar**:
+   - Fixed sidebar disappearance on desktop/laptop window resize.
+   - Expand / Collapse toggle button (`☰`) in topbar with compact icon-only mode (`68px`) for maximum screen space.
+   - Mobile slide-out navigation drawer with dark backdrop on screens `< 768px`.
+   - `localStorage` persistence for user sidebar collapse preference.
 
 ### Sprint 6 (WhatsApp & Notification Integration) — built
 1. **1-Click WhatsApp Share**: `NotificationService.get_invoice_whatsapp_url()` generates instant `https://wa.me/91XXXXXXXXXX?text=...` links with formatted bill receipt text.

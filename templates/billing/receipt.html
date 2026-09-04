@@ -100,10 +100,29 @@
         <tbody>
             {% for line in lines %}
                 <tr>
-                    <td>{{ line.description }}</td>
-                    <td style="text-align: center;">{{ line.qty }}</td>
-                    <td class="text-right">{{ line.unit_price|inr }}</td>
-                    <td class="text-right fw-bold">{{ line.amount|inr }}</td>
+                    <td>
+                        <div class="fw-semibold">{{ line.description }}</div>
+                        {% if line.pass_through_amount > 0 %}
+                            <div class="text-muted" style="font-size: 11px;">
+                                <span>• Cash Out: {{ line.pass_through_amount|inr }}</span><br>
+                                <span>• Comm / Fee: {{ line.income_amount|inr }}</span>
+                            </div>
+                        {% elif line.withdrawal_summary %}
+                            <div class="text-muted" style="font-size: 11px;">
+                                <span>• {{ line.withdrawal_summary }}</span>
+                            </div>
+                        {% endif %}
+                        {% for val in line.field_values.all %}
+                            {% if val.field_type != 'BANK_TRANSFER' and val.field_type != 'PERCENT' and val.field_type != 'BANK_ACCOUNT' and val.value_text %}
+                                <div class="text-muted" style="font-size: 10px;">
+                                    {{ val.field_label }}: {{ val.display_value }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td style="text-align: center; vertical-align: top;">{{ line.qty }}</td>
+                    <td class="text-right" style="vertical-align: top;">{{ line.unit_price|inr }}</td>
+                    <td class="text-right fw-bold" style="vertical-align: top;">{{ line.amount|inr }}</td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -111,13 +130,53 @@
     
     <div class="receipt-divider"></div>
     
+    {% if invoice.discount > 0 %}
+    <div class="d-flex justify-content-between small">
+        <span>Subtotal:</span>
+        <span>{{ invoice.subtotal|inr }}</span>
+    </div>
+    <div class="d-flex justify-content-between small text-danger">
+        <span>Discount:</span>
+        <span>-{{ invoice.discount|inr }}</span>
+    </div>
+    {% endif %}
+
     <div class="d-flex justify-content-between fw-bold fs-6">
         <span>Total Amount:</span>
-        <span>{{ invoice.total_amount|inr }}</span>
+        <span>{{ invoice.total|inr }}</span>
     </div>
+
+    {% if invoice.pass_through_amount > 0 %}
+    <div class="d-flex justify-content-between small text-muted">
+        <span>Cash Handed to Customer:</span>
+        <span>{{ invoice.pass_through_amount|inr }}</span>
+    </div>
+    <div class="d-flex justify-content-between small text-muted">
+        <span>Shop Service Commission:</span>
+        <span>{{ invoice.income_amount|inr }}</span>
+    </div>
+    {% endif %}
+
+    {% if payments and payments|length > 1 %}
+    <div class="receipt-divider"></div>
+    <div class="small fw-semibold mb-1">Payment Breakdown:</div>
+    {% for pay in payments %}
+        <div class="d-flex justify-content-between small text-muted">
+            <span>{{ pay.get_payment_mode_display }}{% if pay.bank_account %} ({{ pay.bank_account.account_name }}){% endif %}:</span>
+            <span>{{ pay.amount|inr }}</span>
+        </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="receipt-divider"></div>
+
     <div class="d-flex justify-content-between small text-muted">
         <span>Payment Mode:</span>
         <span>{{ invoice.get_payment_mode_display }}</span>
+    </div>
+    <div class="d-flex justify-content-between small">
+        <span>Paid Amount:</span>
+        <span class="fw-semibold text-success">{{ invoice.paid_amount|inr }}</span>
     </div>
     <div class="d-flex justify-content-between small">
         <span>Status:</span>
@@ -125,10 +184,10 @@
             {{ invoice.get_status_display }}
         </span>
     </div>
-    {% if invoice.status != "PAID" and invoice.balance_due %}
+    {% if invoice.status != "PAID" and invoice.outstanding_amount > 0 %}
         <div class="d-flex justify-content-between small text-danger fw-bold">
             <span>Balance Due:</span>
-            <span>{{ invoice.balance_due|inr }}</span>
+            <span>{{ invoice.outstanding_amount|inr }}</span>
         </div>
     {% endif %}
     

@@ -19,21 +19,32 @@ class InvoiceForm(forms.ModelForm):
         label="Save as a new customer",
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
+    bank_account = forms.ModelChoiceField(
+        queryset=BankAccount.objects.none(),
+        required=False,
+        label="Shop Bank (for UPI / Bank)",
+        empty_label="— Auto Default Shop Bank —",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
 
     class Meta:
         model = Invoice
-        fields = ["customer", "customer_name", "create_customer", "payment_mode", "discount", "notes"]
+        fields = ["customer", "customer_name", "create_customer", "payment_mode", "bank_account", "discount", "notes"]
         widgets = {
             "customer": forms.Select(attrs={"class": "form-select"}),
             "payment_mode": forms.Select(attrs={"class": "form-select"}),
             "discount": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0", "placeholder": "0.00"}),
-            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+            "notes": forms.Textarea(attrs={"class": "form-control", "rows": 1, "placeholder": "Optional bill notes"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["customer"].queryset = Customer.objects.order_by("full_name")
         self.fields["customer"].required = False
+        self.fields["bank_account"].queryset = BankAccount.objects.filter(is_active=True).order_by("account_name")
+        default_acc = BankAccount.objects.filter(is_active=True, is_default=True).first() or BankAccount.objects.filter(is_active=True).first()
+        if default_acc:
+            self.fields["bank_account"].initial = default_acc.pk
 
     def clean(self):
         cleaned = super().clean()

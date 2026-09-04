@@ -13,7 +13,7 @@ this service. Keeping the rules here guarantees that every path
 from django.contrib.auth import get_user_model
 
 from apps.employees.models import Employee, EmploymentStatus, Role
-from apps.employees.services.role_service import assign_role_group
+from apps.employees.services.role_service import assign_role_group, sync_employee_permissions
 from apps.employees.services.wallet_service import WalletService
 
 _EDITABLE_FIELDS = (
@@ -35,6 +35,7 @@ _EDITABLE_FIELDS = (
     "id_proof_number",
     "notes",
     "hourly_rate",
+    "can_create_bills",
 )
 
 
@@ -76,7 +77,6 @@ class EmployeeService:
             first_name=data.get("first_name", ""),
             last_name=data.get("last_name", ""),
         )
-        assign_role_group(user, role)
 
         full_name = str(data.get("full_name", "")).strip() or user.get_full_name()
         employee = Employee.objects.create(
@@ -100,24 +100,35 @@ class EmployeeService:
             id_proof_number=data.get("id_proof_number", ""),
             notes=data.get("notes", ""),
             hourly_rate=data.get("hourly_rate") or 0,
+            can_create_bills=bool(data.get("can_create_bills", False)),
             created_by=by,
             updated_by=by,
         )
+        sync_employee_permissions(employee)
+
         # Every employee gets a wallet at birth (balance is zero until money moves).
         WalletService.get_or_create_wallet(employee)
         return employee
 
     @staticmethod
     def update_employee(employee: Employee, *, data: dict, by=None) -> Employee:
-        """Apply only known editable fields and keep the role group in sync."""
+        """Apply only known editable fields and keep permissions in sync."""
         for field in _EDITABLE_FIELDS:
             if field in data:
                 setattr(employee, field, data[field])
         employee.updated_by = by
         employee.save()
 
-        if "role" in data:
-            assign_role_group(employee.user, data["role"])
+        sync_employee_permissions(employee)
+        return employee
+
+    @staticmethod
+    def toggle_billing_access(employee: Employee, *, by=None) -> Employee:
+        """Toggle billing permission (give/revoke) and sync user permissions."""
+        employee.can_create_bills = not employee.can_create_bills
+        employee.updated_by = by
+        employee.save(update_fields=["can_create_bills", "updated_by", "updated_at"])
+        sync_employee_permissions(employee)
         return employee
 
     @staticmethod
@@ -133,3 +144,4 @@ class EmployeeService:
         employee.user.is_active = True
         employee.user.save(update_fields=["is_active", "updated_at"])
         return employee.restore(by=by)
+

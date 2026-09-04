@@ -84,6 +84,47 @@
             </div>
         </div>
 
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-shield-lock me-1 text-primary"></i>Permissions &amp; Billing Access</h6>
+                {% if employee.can_create_bills %}
+                    <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Billing Allowed</span>
+                {% else %}
+                    <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Billing Disabled</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-3 bg-light rounded border">
+                    <div>
+                        <div class="fw-semibold text-dark">
+                            <i class="bi bi-receipt me-1 text-primary"></i> Counter Bill Creation Access
+                        </div>
+                        <div class="small text-muted mt-1">
+                            {% if employee.can_create_bills %}
+                                <span class="text-success fw-medium"><i class="bi bi-check-lg me-1"></i>Is staff ke paas bill banane ka access active hai.</span> Counter par naya bill generate kar sakte hain.
+                            {% else %}
+                                <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Is staff ke paas bill banane ka access nahi hai (View-only).</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if perms.employees.change_employee %}
+                        <form method="post" action="{% url 'employees:toggle_billing' employee.pk %}" class="mb-0">
+                            {% csrf_token %}
+                            {% if employee.can_create_bills %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke billing access from {{ employee.full_name }}?')">
+                                    <i class="bi bi-shield-x me-1"></i> Revoke Access
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-sm btn-success">
+                                    <i class="bi bi-shield-check me-1"></i> Give Billing Access
+                                </button>
+                            {% endif %}
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
         <div class="card shadow-sm border-0">
             <div class="card-header bg-white">
                 <h6 class="mb-0 fw-semibold">Identity &amp; Notes</h6>
@@ -97,6 +138,10 @@
                         </span>
                     </div>
                     <div class="col-md-6">
+                        <span class="text-muted small d-block">Hourly Wage Rate</span>
+                        <span>₹{{ employee.hourly_rate|floatformat:2 }}</span>
+                    </div>
+                    <div class="col-12">
                         <span class="text-muted small d-block">Notes</span>
                         <span>{{ employee.notes|default:"—" }}</span>
                     </div>
