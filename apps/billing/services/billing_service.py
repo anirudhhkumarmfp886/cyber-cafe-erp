@@ -48,9 +48,10 @@ from apps.billing.models import (
     InvoicePayment,
     InvoicePaymentMode,
     InvoiceStatus,
+    PaymentDestination,
 )
 from apps.billing.selectors.invoice_selector import InvoiceSelector
-from apps.customers.models import Customer
+from apps.customers.models import CreditLogType, Customer, CustomerCreditLog
 from apps.employees.models import WalletTransactionCategory, WalletType
 from apps.employees.services.wallet_service import WalletService
 from apps.finance.models import BankAccount
@@ -61,6 +62,7 @@ from apps.finance.models.enums import (
 )
 from apps.finance.services.bank_service import BankService
 from apps.finance.services.cashbook_service import CashBookService
+from apps.finance.services.upibook_service import UPIBookService
 from apps.services.models import CustomFieldType, ServiceCustomField
 from apps.services.selectors.service_selector import ServiceSelector
 
@@ -229,6 +231,8 @@ class BillingService:
             for payment in cleaned_payments:
                 mode = payment["mode"]
                 amount = payment["amount"]
+                dest = payment.get("payment_destination") or data.get("payment_destination") or PaymentDestination.AUTO
+
                 if mode == InvoicePaymentMode.CUSTOMER_WALLET:
                     BillingService._book_wallet_payment(
                         invoice=invoice,
@@ -237,19 +241,32 @@ class BillingService:
                         by=by,
                     )
                     continue
+
                 if mode == InvoicePaymentMode.CASH:
-                    entry = CashBookService.record_income(
-                        amount=amount,
-                        category=CashEntryCategory.SALES,
-                        payment_mode="CASH",
-                        party_name=party_name,
-                        description=f"Invoice {invoice.invoice_number} cash payment",
-                        by=by,
-                        staff=staff,
-                    )
-                    if first_cash_entry is None:
-                        first_cash_entry = entry
-                    if staff is not None:
+                    # Resolve CASH routing:
+                    # - STAFF: always credit staff float (if staff exists)
+                    # - SHOP: direct main galla (no staff wallet credit)
+                    # - AUTO (default): standard counter float to staff if staff exists, else main galla
+                    if dest == PaymentDestination.SHOP:
+                        is_staff_float = False
+                    elif dest == PaymentDestination.STAFF:
+                        is_staff_float = (staff is not None)
+                    else:  # AUTO
+                        is_staff_float = (staff is not None)
+
+                    if is_staff_float:
+                        destination = PaymentDestination.STAFF
+                        entry = CashBookService.record_income(
+                            amount=amount,
+                            category=CashEntryCategory.SALES,
+                            payment_mode="CASH",
+                            party_name=party_name,
+                            description=f"Invoice {invoice.invoice_number} cash payment",
+                            by=by,
+                            staff=staff,
+                        )
+                        if first_cash_entry is None:
+                            first_cash_entry = entry
                         WalletService.credit(
                             wallet=WalletService.get_or_create_wallet(staff, WalletType.CASH),
                             amount=amount,
@@ -259,50 +276,88 @@ class BillingService:
                             destination=staff.full_name,
                             by=by,
                         )
+                    else:
+                        destination = PaymentDestination.SHOP
+                        entry = CashBookService.record_income(
+                            amount=amount,
+                            category=CashEntryCategory.SALES,
+                            payment_mode="CASH",
+                            party_name=party_name,
+                            description=f"Invoice {invoice.invoice_number} cash payment (Direct Main Galla)",
+                            by=by,
+                            staff=None,
+                        )
+                        if first_cash_entry is None:
+                            first_cash_entry = entry
+
                     InvoicePayment.objects.create(
                         invoice=invoice,
                         amount=amount,
                         payment_mode="CASH",
+                        payment_destination=destination,
                         cash_entry=entry,
                         created_by=by,
                         updated_by=by,
                     )
                 else:
-                    bank_account = payment["bank_account"] or withdrawal_default_bank
-                    if bank_account is None:
-                        bank_account = BankSelector.get_default_account()
-                    if bank_account is None:
-                        raise ValueError(
-                            "UPI / bank payments need a shop bank account. Please create one in Finance > Bank Accounts first."
-                        )
-                    bank_account = BankAccount.objects.select_for_update().get(pk=bank_account.pk)
-                    bank_txn = BankService.deposit(
-                        account=bank_account,
-                        amount=amount,
-                        category=BankTransactionCategory.PAYMENT_RECEIVED,
-                        party_name=party_name,
-                        description=f"Invoice {invoice.invoice_number} {mode} payment",
-                        by=by,
-                    )
-                    if staff is not None:
+                    # Online modes: UPI, CARD, BANK_TRANSFER
+                    # - STAFF: staff personal UPI (credit staff online wallet)
+                    # - SHOP or AUTO (default): shop QR/soundbox (deposit to shop bank account)
+                    if dest == PaymentDestination.STAFF and staff is not None:
+                        # Staff Personal UPI (Bheed mode)
                         WalletService.credit(
                             wallet=WalletService.get_or_create_wallet(staff, WalletType.ONLINE),
                             amount=amount,
                             category=WalletTransactionCategory.PAYMENT_COLLECTED,
-                            description=f"UPI / bank payment for {invoice.invoice_number}",
+                            description=f"Personal UPI / staff payment for {invoice.invoice_number}",
                             source=party_name,
                             destination=staff.full_name,
                             by=by,
                         )
-                    InvoicePayment.objects.create(
-                        invoice=invoice,
-                        amount=amount,
-                        payment_mode=mode,
-                        bank_account=bank_account,
-                        bank_transaction=bank_txn,
-                        created_by=by,
-                        updated_by=by,
-                    )
+                        InvoicePayment.objects.create(
+                            invoice=invoice,
+                            amount=amount,
+                            payment_mode=mode,
+                            payment_destination=PaymentDestination.STAFF,
+                            created_by=by,
+                            updated_by=by,
+                        )
+                    else:
+                        # Shop Bank Account (Shop QR / Soundbox)
+                        destination = PaymentDestination.SHOP
+                        bank_account = payment.get("bank_account") or withdrawal_default_bank or data.get("bank_account")
+                        if bank_account is None:
+                            bank_account = BankSelector.get_default_account()
+                        if bank_account is None:
+                            raise ValueError(f"{mode} payments need a shop bank account to receive the funds.")
+                        bank_account = BankAccount.objects.select_for_update().get(pk=bank_account.pk)
+                        bank_txn = BankService.deposit(
+                            account=bank_account,
+                            amount=amount,
+                            category=BankTransactionCategory.PAYMENT_RECEIVED,
+                            party_name=party_name,
+                            description=f"Invoice {invoice.invoice_number} {mode} payment",
+                            by=by,
+                        )
+                        upi_entry = UPIBookService.record_income(
+                            amount=amount,
+                            category=CashEntryCategory.SALES,
+                            bank_account=bank_account,
+                            party_name=party_name,
+                            description=f"Invoice {invoice.invoice_number} {mode} payment",
+                            by=by,
+                            staff=staff,
+                        )
+                        InvoicePayment.objects.create(
+                            invoice=invoice,
+                            amount=amount,
+                            payment_mode=mode,
+                            payment_destination=PaymentDestination.SHOP,
+                            bank_account=bank_account,
+                            bank_transaction=bank_txn,
+                            created_by=by,
+                            updated_by=by,
+                        )
 
             if first_cash_entry is not None:
                 invoice.cash_entry = first_cash_entry
@@ -332,17 +387,32 @@ class BillingService:
         bank_account = bank_account or service.default_bank_account
 
         if service.total_formula and service.total_formula.strip():
-            amount = BillingService._evaluate_formula(service.total_formula, variables, service)
-            if amount <= 0:
+            has_qty_in_total = "qty" in service.total_formula
+            total_formula_val = BillingService._evaluate_formula(service.total_formula, variables, service)
+            if total_formula_val <= 0:
                 raise ValueError(f"Pricing formula for '{service.name}' produced a non-positive amount.")
+
+            qty_dec = Decimal(str(qty)) if qty else Decimal("1")
+            if has_qty_in_total:
+                amount = total_formula_val
+                unit_price = _round(amount / qty_dec) if qty_dec else amount
+            else:
+                unit_price = total_formula_val
+                amount = _round(unit_price * qty_dec)
+
             if service.income_formula and service.income_formula.strip():
-                income = BillingService._evaluate_formula(service.income_formula, variables, service)
+                has_qty_in_income = "qty" in service.income_formula
+                income_formula_val = BillingService._evaluate_formula(service.income_formula, variables, service)
+                if has_qty_in_income:
+                    income = income_formula_val
+                else:
+                    income = _round(income_formula_val * qty_dec)
             else:
                 income = amount
+
             if income < 0:
                 raise ValueError(f"Income formula for '{service.name}' produced a negative income.")
             passthrough_type = service.passthrough_type or ServicePassThroughType.NONE
-            unit_price = service.price
         elif transfer is not None:
             # Legacy BANK_TRANSFER pair: the historical cash-withdrawal.
             if bank_account is None:
@@ -399,7 +469,12 @@ class BillingService:
         """
         custom_data = custom_data or {}
         field_values = []
-        variables = {"qty": Decimal("1"), "price": _amount(service.price)}
+        variables = {"qty": Decimal(str(qty)) if qty else Decimal("1"), "price": _amount(service.price)}
+        # Pre-populate all active numeric variables with 0 so optional formula variables never crash
+        for cf in service.custom_fields.filter(is_active=True):
+            if cf.field_type in (CustomFieldType.NUMBER, CustomFieldType.PERCENT, CustomFieldType.BANK_TRANSFER):
+                variables[cf.variable_name] = Decimal("0")
+
         transfer_amount = None
         percent_value = None
         bank_account = None
@@ -429,50 +504,50 @@ class BillingService:
                 bank_account = account
 
             elif field.field_type == CustomFieldType.BANK_TRANSFER:
-                if raw:
+                if raw is not None and str(raw).strip() != "":
                     amount = _round(raw)
                     if amount <= 0:
                         raise ValueError(f"'{field.label}' must be greater than zero.")
                     value_text = str(amount)
                     transfer_amount = amount
                     variables[field.variable_name] = amount
-                if field.required and not raw:
+                elif field.required:
                     raise ValueError(f"'{field.label}' is required for {service.name}.")
 
             elif field.field_type == CustomFieldType.PERCENT:
-                if raw:
+                if raw is not None and str(raw).strip() != "":
                     percent = Decimal(str(raw))
                     if percent < 0 or percent > 100:
                         raise ValueError(f"'{field.label}' must be between 0 and 100.")
                     value_text = str(percent)
                     percent_value = percent
                     variables[field.variable_name] = percent
-                if field.required and not raw:
+                elif field.required:
                     raise ValueError(f"'{field.label}' is required for {service.name}.")
 
             elif field.field_type == CustomFieldType.NUMBER:
-                if raw:
+                if raw is not None and str(raw).strip() != "":
                     number = Decimal(str(raw))
                     if number < 0:
                         raise ValueError(f"'{field.label}' cannot be negative.")
                     value_text = str(_round(number))
                     variables[field.variable_name] = number
-                if field.required and not raw:
+                elif field.required:
                     raise ValueError(f"'{field.label}' is required for {service.name}.")
 
             elif field.field_type == CustomFieldType.DATE:
-                if raw:
+                if raw is not None and str(raw).strip() != "":
                     from datetime import datetime
 
                     try:
                         value_text = datetime.strptime(str(raw), "%Y-%m-%d").date().isoformat()
                     except ValueError:
                         raise ValueError(f"'{field.label}' must be a valid date.")
-                if field.required and not raw:
+                elif field.required:
                     raise ValueError(f"'{field.label}' is required for {service.name}.")
 
             else:  # TEXT
-                value_text = str(raw).strip() if raw else ""
+                value_text = str(raw).strip() if raw is not None else ""
                 if field.required and not value_text:
                     raise ValueError(f"'{field.label}' is required for {service.name}.")
 
@@ -531,15 +606,17 @@ class BillingService:
                     by=by,
                 )
                 line.wallet_entry_id = txn.id
-            CashBookService.record_expense(
-                amount=passthrough,
-                category=CashEntryCategory.CASH_OUT,
-                payment_mode="CASH",
-                party_name=party_name,
-                description=f"Cash given to customer ({reference})",
-                by=by,
-                staff=staff,
-            )
+            else:
+                entry = CashBookService.record_expense(
+                    amount=passthrough,
+                    category=CashEntryCategory.CASH_OUT,
+                    payment_mode="CASH",
+                    party_name=party_name,
+                    description=f"Cash given to customer ({reference})",
+                    by=by,
+                    staff=None,
+                )
+                line.cash_entry_id = entry.id
         elif passthrough_type == ServicePassThroughType.ONLINE:
             if staff is not None:
                 wallet = WalletService.get_or_create_wallet(staff, WalletType.ONLINE)
@@ -577,13 +654,27 @@ class BillingService:
     def _book_wallet_payment(*, invoice: Invoice, customer: Customer, amount, by=None) -> InvoicePayment:
         """Draw down a customer's pre-paid credit balance as a payment."""
         customer = Customer.objects.select_for_update().get(pk=customer.pk)
-        if _amount(customer.credit_balance) < amount:
+        old_bal = _amount(customer.credit_balance)
+        if old_bal < amount:
             raise ValueError(
                 f"Insufficient customer credit balance: has {customer.credit_balance}, needs {amount}."
             )
-        customer.credit_balance = _amount(customer.credit_balance) - amount
+        new_bal = old_bal - amount
+        customer.credit_balance = new_bal
         customer.updated_by = by
         customer.save(update_fields=["credit_balance", "updated_by", "updated_at"])
+
+        CustomerCreditLog.objects.create(
+            customer=customer,
+            log_type=CreditLogType.PREPAID_USAGE,
+            old_amount=old_bal,
+            new_amount=new_bal,
+            change_amount=-amount,
+            invoice=invoice,
+            notes=f"Used towards Bill #{invoice.invoice_number}",
+            created_by=by,
+        )
+
         return InvoicePayment.objects.create(
             invoice=invoice,
             amount=amount,
@@ -597,7 +688,16 @@ class BillingService:
 
     @staticmethod
     @transaction.atomic
-    def settle_invoice(*, invoice: Invoice, amount, payment_mode: str, notes: str = "", by=None) -> InvoicePayment:
+    def settle_invoice(
+        *,
+        invoice: Invoice,
+        amount,
+        payment_mode: str,
+        payment_destination: str = None,
+        bank_account: BankAccount = None,
+        notes: str = "",
+        by=None,
+    ) -> InvoicePayment:
         """Record a payment against an unpaid invoice and update its status."""
         if invoice.status == InvoiceStatus.PAID:
             raise ValueError("This invoice is already fully paid.")
@@ -611,6 +711,7 @@ class BillingService:
         if amount > outstanding:
             raise ValueError(f"Payment exceeds the outstanding amount of {outstanding}.")
 
+        staff = getattr(by, "employee", None) if by else None
         party_name = invoice.customer.full_name if invoice.customer else "Walk-in Customer"
         if payment_mode == InvoicePaymentMode.CUSTOMER_WALLET:
             if invoice.customer is None:
@@ -621,24 +722,113 @@ class BillingService:
                 amount=amount,
                 by=by,
             )
-        else:
-            cash_entry = CashBookService.record_income(
-                amount=amount,
-                category=CashEntryCategory.SALES,
-                payment_mode=payment_mode,
-                party_name=party_name,
-                description=f"Payment for {invoice.invoice_number}",
-                by=by,
-            )
+        elif payment_mode == InvoicePaymentMode.CASH:
+            dest = payment_destination or PaymentDestination.AUTO
+            if dest == PaymentDestination.SHOP:
+                is_staff_float = False
+            elif dest == PaymentDestination.STAFF:
+                is_staff_float = (staff is not None)
+            else:  # AUTO
+                is_staff_float = (staff is not None)
+
+            if is_staff_float:
+                dest = PaymentDestination.STAFF
+                cash_entry = CashBookService.record_income(
+                    amount=amount,
+                    category=CashEntryCategory.SALES,
+                    payment_mode=payment_mode,
+                    party_name=party_name,
+                    description=f"Payment for {invoice.invoice_number}",
+                    staff=staff,
+                    by=by,
+                )
+                WalletService.credit(
+                    wallet=WalletService.get_or_create_wallet(staff, WalletType.CASH),
+                    amount=amount,
+                    category=WalletTransactionCategory.PAYMENT_COLLECTED,
+                    description=f"Cash collected for {invoice.invoice_number} settlement",
+                    source=party_name,
+                    destination=staff.full_name,
+                    by=by,
+                )
+            else:
+                dest = PaymentDestination.SHOP
+                cash_entry = CashBookService.record_income(
+                    amount=amount,
+                    category=CashEntryCategory.SALES,
+                    payment_mode=payment_mode,
+                    party_name=party_name,
+                    description=f"Payment for {invoice.invoice_number} (Direct Main Galla)",
+                    staff=None,
+                    by=by,
+                )
             payment = InvoicePayment.objects.create(
                 invoice=invoice,
                 amount=amount,
                 payment_mode=payment_mode,
+                payment_destination=dest,
                 cash_entry=cash_entry,
                 notes=notes,
                 created_by=by,
                 updated_by=by,
             )
+        else:
+            # UPI / CARD / BANK_TRANSFER
+            dest = payment_destination or PaymentDestination.AUTO
+            if dest == PaymentDestination.STAFF and staff is not None:
+                WalletService.credit(
+                    wallet=WalletService.get_or_create_wallet(staff, WalletType.ONLINE),
+                    amount=amount,
+                    category=WalletTransactionCategory.PAYMENT_COLLECTED,
+                    description=f"Personal UPI collected for {invoice.invoice_number} settlement",
+                    source=party_name,
+                    destination=staff.full_name,
+                    by=by,
+                )
+                payment = InvoicePayment.objects.create(
+                    invoice=invoice,
+                    amount=amount,
+                    payment_mode=payment_mode,
+                    payment_destination=PaymentDestination.STAFF,
+                    notes=notes,
+                    created_by=by,
+                    updated_by=by,
+                )
+            else:
+                dest = PaymentDestination.SHOP
+                acc = bank_account or BankSelector.get_default_account()
+                bank_txn = None
+                if acc is not None:
+                    acc = BankAccount.objects.select_for_update().get(pk=acc.pk)
+                    bank_txn = BankService.deposit(
+                        account=acc,
+                        amount=amount,
+                        category=BankTransactionCategory.PAYMENT_RECEIVED,
+                        party_name=party_name,
+                        description=f"Payment for {invoice.invoice_number} ({payment_mode})",
+                        by=by,
+                    )
+                UPIBookService.record_income(
+                    amount=amount,
+                    category=CashEntryCategory.SALES,
+                    bank_account=acc,
+                    party_name=party_name,
+                    description=f"Settlement for {invoice.invoice_number} ({payment_mode})",
+                    by=by,
+                    staff=staff,
+                )
+                payment = InvoicePayment.objects.create(
+                    invoice=invoice,
+                    amount=amount,
+                    payment_mode=payment_mode,
+                    payment_destination=PaymentDestination.SHOP,
+                    bank_account=acc,
+                    bank_transaction=bank_txn,
+                    cash_entry=None,
+                    notes=notes,
+                    created_by=by,
+                    updated_by=by,
+                )
 
         if invoice.paid_amount >= invoice.total:
             invoice.status = InvoiceStatus.PAID
@@ -685,9 +875,23 @@ class BillingService:
         if payment.invoice.customer_id is None:
             return
         customer = Customer.objects.select_for_update().get(pk=payment.invoice.customer_id)
-        customer.credit_balance = _amount(customer.credit_balance) + payment.amount
+        old_bal = _amount(customer.credit_balance)
+        new_bal = old_bal + payment.amount
+        customer.credit_balance = new_bal
         customer.updated_by = by
         customer.save(update_fields=["credit_balance", "updated_by", "updated_at"])
+
+        CustomerCreditLog.objects.create(
+            customer=customer,
+            log_type=CreditLogType.PREPAID_REFUND,
+            old_amount=old_bal,
+            new_amount=new_bal,
+            change_amount=payment.amount,
+            invoice=payment.invoice,
+            notes=f"Refunded from voided Bill #{payment.invoice.invoice_number}",
+            created_by=by,
+        )
+
         payment.soft_delete(by=by)
 
 

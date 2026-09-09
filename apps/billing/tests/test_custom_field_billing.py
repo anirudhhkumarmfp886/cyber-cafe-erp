@@ -13,6 +13,7 @@ from apps.employees.services.wallet_service import WalletService
 from apps.finance.models import BankTransaction, CashBookEntry
 from apps.finance.models.enums import CashEntryCategory
 from apps.finance.services.bank_service import BankService
+from apps.finance.services.cashbook_service import CashBookService
 from apps.services.services.service_service import ServiceService
 
 User = get_user_model()
@@ -86,6 +87,12 @@ class CustomFieldBillingServiceTests(TestCase):
     def test_bank_transfer_books_withdrawal_ledger(self):
         transfer = self._add_field("Transfer Amount", "BANK_TRANSFER", required=True)
         bank = self._add_field("Bank Account", "BANK_ACCOUNT", required=True)
+        CashBookService.record_income(
+            amount=5000,
+            category=CashEntryCategory.OWNER_DEPOSIT,
+            payment_mode="CASH",
+            by=self.owner,
+        )
         WalletService.top_up(
             employee=self.manager.employee,
             wallet_type=WalletType.CASH,
@@ -117,9 +124,8 @@ class CustomFieldBillingServiceTests(TestCase):
                 self.manager.employee, WalletType.CASH
             ).transactions.values_list("category", flat=True)
         )
-        self.assertEqual(
-            CashBookEntry.objects.get(category=CashEntryCategory.CASH_OUT).amount,
-            Decimal("5000"),
+        self.assertFalse(
+            CashBookEntry.objects.filter(category=CashEntryCategory.CASH_OUT).exists()
         )
 
     def test_bank_transfer_without_account_rejected(self):

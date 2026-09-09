@@ -6,7 +6,8 @@ from django.test import TestCase
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.billing.services.billing_service import BillingService
 from apps.customers.services.customer_service import CustomerService
-from apps.finance.models import CashBookEntry
+from apps.employees.services.wallet_service import WalletService
+from apps.finance.models import BankAccount, CashBookEntry, UPIBookEntry
 from apps.finance.models.enums import CashEntryCategory, CashEntryType
 from apps.services.services.service_service import ServiceService
 
@@ -91,13 +92,16 @@ class BillingServiceTests(TestCase):
         invoice.refresh_from_db()
         self.assertEqual(invoice.status, InvoiceStatus.PARTIAL)
         self.assertEqual(invoice.outstanding_amount, 50)
-        self.assertEqual(CashBookEntry.objects.filter(category=CashEntryCategory.SALES).count(), 1)
+        # UPI settlement goes to UPI Book, NOT Cash Book
+        self.assertEqual(UPIBookEntry.objects.filter(category=CashEntryCategory.SALES).count(), 1)
+        self.assertEqual(CashBookEntry.objects.filter(category=CashEntryCategory.SALES).count(), 0)
 
         BillingService.settle_invoice(invoice=invoice, amount=50, payment_mode="CASH", by=self.user)
         invoice.refresh_from_db()
         self.assertEqual(invoice.status, InvoiceStatus.PAID)
         self.assertEqual(invoice.outstanding_amount, 0)
-        self.assertEqual(CashBookEntry.objects.filter(category=CashEntryCategory.SALES).count(), 2)
+        # Cash settlement adds 1 entry to Cash Book
+        self.assertEqual(CashBookEntry.objects.filter(category=CashEntryCategory.SALES).count(), 1)
 
     def test_settle_cannot_exceed_outstanding(self):
         invoice = self._bill([(self.gaming, 1)], payment_mode="CREDIT", customer=self.customer)
@@ -127,3 +131,103 @@ class BillingServiceTests(TestCase):
         for entry in entries:
             entry.refresh_from_db()
             self.assertFalse(entry.is_active)
+
+
+class PaymentDestinationRoutingTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="staff1", password="Pass#123")
+        from apps.employees.models import Employee, Role
+        self.employee = Employee.objects.create(
+            user=self.user,
+            employee_code="EMP-TEST-001",
+            full_name="Staff Member",
+            role=Role.COUNTER_STAFF,
+        )
+        self.gaming = ServiceService.create_service(
+            data={"name": "Gaming 1hr", "category": "GAMES", "price": 100}, by=self.user
+        )
+        self.bank = BankAccount.objects.create(
+            account_name="Shop HDFC",
+            account_number="1234567890",
+            bank_name="HDFC",
+            is_default=True,
+        )
+
+    def test_auto_destination_routes_cash_to_staff_and_upi_to_shop(self):
+        from apps.employees.models import WalletType
+        from apps.billing.models import PaymentDestination
+
+        # AUTO Cash
+        inv_cash = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "payment_destination": PaymentDestination.AUTO},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.user,
+        )
+        p_cash = inv_cash.payments.first()
+        self.assertEqual(p_cash.payment_destination, PaymentDestination.STAFF)
+        cash_wallet = WalletService.get_or_create_wallet(self.employee, WalletType.CASH)
+        self.assertEqual(cash_wallet.balance, 100)
+
+        # AUTO UPI
+        inv_upi = BillingService.create_invoice(
+            data={"payment_mode": "UPI", "payment_destination": PaymentDestination.AUTO},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.user,
+        )
+        p_upi = inv_upi.payments.first()
+        self.assertEqual(p_upi.payment_destination, PaymentDestination.SHOP)
+        self.assertEqual(p_upi.bank_account, self.bank)
+        self.assertEqual(self.bank.balance, 100)
+
+    def test_staff_destination_routes_both_cash_and_upi_to_staff(self):
+        from apps.employees.models import WalletType
+        from apps.billing.models import PaymentDestination
+
+        # STAFF Cash
+        inv_cash = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "payment_destination": PaymentDestination.STAFF},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.user,
+        )
+        p_cash = inv_cash.payments.first()
+        self.assertEqual(p_cash.payment_destination, PaymentDestination.STAFF)
+        cash_wallet = WalletService.get_or_create_wallet(self.employee, WalletType.CASH)
+        self.assertEqual(cash_wallet.balance, 100)
+
+        # STAFF UPI
+        inv_upi = BillingService.create_invoice(
+            data={"payment_mode": "UPI", "payment_destination": PaymentDestination.STAFF},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.user,
+        )
+        p_upi = inv_upi.payments.first()
+        self.assertEqual(p_upi.payment_destination, PaymentDestination.STAFF)
+        online_wallet = WalletService.get_or_create_wallet(self.employee, WalletType.ONLINE)
+        self.assertEqual(online_wallet.balance, 100)
+
+    def test_shop_destination_routes_both_cash_and_upi_to_shop(self):
+        from apps.employees.models import WalletType
+        from apps.billing.models import PaymentDestination
+
+        # SHOP Cash (Direct Galla)
+        inv_cash = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "payment_destination": PaymentDestination.SHOP},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.user,
+        )
+        p_cash = inv_cash.payments.first()
+        self.assertEqual(p_cash.payment_destination, PaymentDestination.SHOP)
+        cash_wallet = WalletService.get_or_create_wallet(self.employee, WalletType.CASH)
+        self.assertEqual(cash_wallet.balance, 0)
+
+        # SHOP UPI
+        inv_upi = BillingService.create_invoice(
+            data={"payment_mode": "UPI", "payment_destination": PaymentDestination.SHOP},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.user,
+        )
+        p_upi = inv_upi.payments.first()
+        self.assertEqual(p_upi.payment_destination, PaymentDestination.SHOP)
+        self.assertEqual(p_upi.bank_account, self.bank)
+        self.assertEqual(self.bank.balance, 100)
+

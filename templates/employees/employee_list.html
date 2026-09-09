@@ -70,9 +70,13 @@
                         </td>
                         <td class="text-muted small">{{ employee.date_of_joining|date:"d M Y"|default:"—" }}</td>
                         <td class="text-end">
-                            <a href="{% url 'employees:detail' employee.pk %}" class="btn btn-sm btn-outline-primary" title="View">
-                                <i class="bi bi-eye"></i>
-                            </a>
+                            {% if can_view_all_profiles or employee.user == request.user %}
+                                <a href="{% url 'employees:detail' employee.pk %}" class="btn btn-sm btn-outline-primary" title="{% if employee.user == request.user %}View My Profile{% else %}View Profile{% endif %}">
+                                    <i class="bi bi-eye me-1"></i>{% if employee.user == request.user %}My Profile{% else %}View{% endif %}
+                                </a>
+                            {% else %}
+                                <span class="badge text-bg-light border text-muted small"><i class="bi bi-shield-lock me-1"></i>Restricted</span>
+                            {% endif %}
                             {% if perms.employees.change_employee %}
                                 <a href="{% url 'employees:update' employee.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
                                     <i class="bi bi-pencil"></i>

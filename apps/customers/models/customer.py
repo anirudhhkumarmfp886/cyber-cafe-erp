@@ -11,7 +11,7 @@ class Gender(models.TextChoices):
 
 class Customer(BaseModel):
     full_name = models.CharField(max_length=150, db_index=True)
-    phone = models.CharField(max_length=15, unique=True, blank=True, db_index=True)
+    phone = models.CharField(max_length=15, unique=True, null=True, blank=True, db_index=True)
     email = models.EmailField(blank=True)
 
     gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
@@ -39,3 +39,8 @@ class Customer(BaseModel):
 
     def __str__(self):
         return self.full_name
+
+    def save(self, *args, **kwargs):
+        if not self.phone:
+            self.phone = None
+        super().save(*args, **kwargs)

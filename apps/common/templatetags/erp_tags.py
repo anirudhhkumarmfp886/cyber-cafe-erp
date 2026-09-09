@@ -45,3 +45,19 @@ def add_class(field, css_class: str):
 @register.simple_tag
 def money_decimal_places() -> int:
     return settings.MONEY_DECIMAL_PLACES
+
+
+@register.simple_tag(takes_context=True)
+def url_replace(context, **kwargs):
+    """Preserve current query parameters and replace or add specific keys (e.g. page)."""
+    request = context.get("request")
+    if not request:
+        return ""
+    query = request.GET.copy()
+    for k, v in kwargs.items():
+        if v is None or v == "":
+            query.pop(k, None)
+        else:
+            query[k] = v
+    return query.urlencode()
+

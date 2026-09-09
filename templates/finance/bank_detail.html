@@ -61,45 +61,127 @@
 
     <div class="col-lg-8">
         <div class="card shadow-sm border-0">
-            <div class="card-header bg-white d-flex align-items-center justify-content-between">
-                <h6 class="mb-0 fw-semibold">Statement</h6>
-                <span class="badge text-bg-light">Last 150 transactions</span>
+            <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2 py-3">
+                <div>
+                    <h6 class="mb-0 fw-semibold">Statement / Ledger</h6>
+                    <small class="text-muted">Total {{ total_txns_count }} transaction{{ total_txns_count|pluralize }}</small>
+                </div>
+                <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+                    <input type="text" name="q" value="{{ filter_q }}" class="form-control form-control-sm" placeholder="Search Ref / Party / Note..." style="min-width: 160px;">
+                    <select name="type" class="form-select form-select-sm" style="width: auto;">
+                        <option value="">All Types</option>
+                        {% for val, label in types %}
+                            <option value="{{ val }}" {% if filter_type == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="category" class="form-select form-select-sm" style="width: auto;">
+                        <option value="">All Categories</option>
+                        {% for val, label in categories %}
+                            <option value="{{ val }}" {% if filter_category == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="small text-muted">From:</span>
+                        <input type="date" name="from_date" value="{{ filter_from_date }}" class="form-control form-control-sm">
+                    </div>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="small text-muted">To:</span>
+                        <input type="date" name="to_date" value="{{ filter_to_date }}" class="form-control form-control-sm">
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    {% if filter_q or filter_type or filter_category or filter_from_date or filter_to_date %}
+                        <a href="{% url 'finance:bank_detail' account.pk %}" class="btn btn-sm btn-outline-secondary" title="Reset Filters">
+                            <i class="bi bi-x-circle me-1"></i>Reset
+                        </a>
+                    {% endif %}
+                </form>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th scope="col">Date</th>
+                            <th scope="col">Date &amp; Ref</th>
                             <th scope="col">Category</th>
                             <th scope="col">Party</th>
-                            <th scope="col" class="text-end">Debit</th>
-                            <th scope="col" class="text-end">Credit</th>
+                            <th scope="col" class="text-end">Debit (-)</th>
+                            <th scope="col" class="text-end">Credit (+)</th>
                             <th scope="col">By</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for txn in transactions %}
-                            <tr>
-                                <td class="small text-muted">{{ txn.entry_date|date:"d M Y" }}</td>
+                            <tr class="align-middle" onclick="toggleDesc('bank-desc-{{ txn.id }}')" style="cursor: pointer;" title="Click to view description / remark">
+                                <td>
+                                    <div class="small fw-semibold">{{ txn.entry_date|date:"d M Y" }}</div>
+                                    <div class="text-muted font-monospace" style="font-size: 11px;">{{ txn.reference_number }}</div>
+                                </td>
                                 <td><span class="badge text-bg-{% if txn.is_credit %}success{% else %}danger{% endif %}">{{ txn.get_category_display }}</span></td>
-                                <td>{{ txn.party_name|default:"—" }}</td>
+                                <td>
+                                    <span class="fw-semibold">{{ txn.party_name|default:"—" }}</span>
+                                    {% if txn.description %}
+                                        <span class="badge text-bg-primary-subtle text-primary border border-primary-subtle ms-1 small py-0 px-1" title="Click to read description">
+                                            <i class="bi bi-chat-left-text me-1"></i>Note
+                                        </span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end text-danger fw-semibold">
                                     {% if not txn.is_credit %}{{ txn.amount|inr }}{% endif %}
                                 </td>
                                 <td class="text-end text-success fw-semibold">
                                     {% if txn.is_credit %}{{ txn.amount|inr }}{% endif %}
                                 </td>
-                                <td class="small">{{ txn.created_by.get_full_name|default:"—" }}</td>
+                                <td class="small text-muted">{{ txn.created_by.get_full_name|default:txn.created_by.username|default:"—" }}</td>
+                            </tr>
+                            <tr id="bank-desc-{{ txn.id }}" class="d-none">
+                                <td colspan="6" class="p-3 bg-light border-start border-primary border-4 shadow-inner">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <i class="bi bi-chat-left-quote-fill text-primary fs-5 mt-1"></i>
+                                        <div class="w-100">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="small fw-bold text-uppercase text-primary">Transaction Description / Remark:</span>
+                                                <span class="badge text-bg-light border text-muted small font-monospace">{{ txn.reference_number }}</span>
+                                            </div>
+                                            <div class="p-2 mt-1 rounded bg-white border text-dark fw-medium fs-6">
+                                                {% if txn.description %}
+                                                    {{ txn.description }}
+                                                {% else %}
+                                                    <em class="text-muted small">Koi description enter nahi kiya gaya tha.</em>
+                                                {% endif %}
+                                            </div>
+                                            {% if txn.related_reference %}
+                                                <div class="small text-muted mt-2">
+                                                    <i class="bi bi-link-45deg me-1"></i>Related Ref: <code>{{ txn.related_reference }}</code>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-5">No transactions yet.</td>
+                                <td colspan="6" class="text-center text-muted py-5">No transactions found.</td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% if is_paginated %}
+                <div class="card-footer bg-white border-top-0 pt-0 pb-3">
+                    {% include "includes/pagination.html" %}
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
+
+<script>
+function toggleDesc(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.toggle('d-none');
+    }
+}
+</script>
 {% endblock %}

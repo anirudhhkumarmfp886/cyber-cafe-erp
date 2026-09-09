@@ -33,10 +33,37 @@ selectors, views stay thin.
 | 5 | Inventory (Stock In/Out, WAC, Low-Stock Alerts, Cash Book Integration) | **Done** |
 | 6 | 1-Click WhatsApp Share, Thermal Receipts, Low-Stock Owner Alerts | **Done** |
 | 7 | Bank Routing (AEPS Default), Staff Billing Permissions (Give/Revoke), Responsive UI | **Done** |
+| 8 | Shop UPI Book, Multi-Wallet Float Lifecycle, Customer Credit Audit Trail, Realized P&L & Dashboard KPIs | **Done** |
 
 Tests: full suite passes. Ruff lint clean. All migrations applied.
 
-### Sprint 7 (Bank Routing, Granular Permissions & UI Excellence) — built
+### Sprint 8 (Shop UPI Book, Multi-Wallet Float Lifecycle, Customer Credit Audit Trail & Real-Time Dashboard) — built
+1. **Dedicated Shop UPI Book & Pool Ledger (`apps/finance/models/upibook.py`)**:
+   - Distinct `UPIBookEntry` model, service, selector, and views (`/finance/upibook/`), strictly separate from physical cash drawer (`CashBookEntry`).
+   - Tracks incoming customer QR soundbox collections, outgoing portal payouts, float transfers from/to bank accounts, and staff float settlements.
+   - Dynamic scope switcher (`can_view_shop()`): Supervisors and permitted staff view entire shop digital pool and staff float breakdowns; non-privileged staff are restricted strictly to their personal counter transactions.
+2. **Multi-Wallet Float Lifecycle & Granular Permissions**:
+   - Multi-wallet support for every staff member: Cash Wallet (`WalletType.CASH`) and Online Wallet (`WalletType.ONLINE`).
+   - Granular permission flags added to `Employee`:
+     - `can_view_shop_finance`: Strictly gates access to Entire Shop Main Galla and Shop UPI Pool.
+     - `can_manage_customer_credit`: Controls ability to set or adjust customer credit limits (Udhaar on account).
+     - `can_manage_permissions`, `can_record_expenses`, `can_collect_personal_upi`.
+   - Float Settlement Status Card: Clearly indicates `Settled (₹0.00 Due)` when all daily floating funds have been returned to shop pool/drawer.
+3. **Customer Advance & Credit Limit Lifecycle (Audit Trail)**:
+   - Clear distinction between Credit on Account (Udhaar Limit) and Prepaid Balance (Advance Money).
+   - Dedicated `CustomerCreditLog` model (`apps/customers/models/credit_log.py`) recording all deposits, usage, refunds, settlements, and limit changes with collecting staff wallet attribution.
+   - Enhanced Customer Detail page with 4 financial KPI cards (Credit Limit, Outstanding Due, Available Limit, Prepaid Balance) and 3 tabbed audit panels.
+4. **P&L Realized vs Billed Margin Recognition**:
+   - Uncollected margin on partial/unpaid credit bills is kept in `pending_profit` / `billed_income` until collected, preventing premature paper profit bookings.
+   - Clear breakdown between Realized Net Profit, Operating Expenses, and Pending Due Profit on the P&L report.
+5. **Dashboard Real-Time Enhancements**:
+   - Replaced generic balances with **Shop Main Drawer (Galla)** physical cash balance.
+   - Added **Total Shop Money** metric:
+     $$\text{Total Shop Money} = \text{Total Staff Wallets} + \text{Shop UPI Pool} + \text{Shop Main Drawer}$$
+   - Added **Shop UPI Pool (UPI Book)** live balance with direct ledger navigation.
+6. **Strict Form Validations & Ledger Reconciliations**:
+   - Compulsory Source / Channel selection in Owner Inflow/Outflow (Direct Cash vs Bank Transfer) to prevent unsynced bank transactions.
+   - Reconciled all bank transfers (`BANK-000037`, `BANK-000038`, `BANK-000039`) with Cash Drawer and Shop UPI Book.
 1. **Per-Service & Global Default Bank Routing**:
    - Added `is_default` flag to `BankAccount` with single-active default enforcement.
    - Added `default_bank_account` to `Service` for automatic bank ledger routing (e.g., AEPS cash withdrawal routes directly to CBI bank account).

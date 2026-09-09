@@ -3,13 +3,23 @@ from django.contrib import admin
 
 from apps.common.admin import BaseAdmin
 from apps.finance.models import BankAccount, BankTransaction, CashBookEntry
+from apps.finance.models.upibook import UPIBookEntry
 
 
 @admin.register(CashBookEntry)
 class CashBookEntryAdmin(BaseAdmin):
-    list_display = ("reference_number", "entry_date", "entry_type", "category", "amount", "payment_mode", "created_by")
+    list_display = ("reference_number", "entry_date", "entry_type", "category", "amount", "payment_mode", "staff", "created_by")
     list_filter = ("entry_type", "category", "payment_mode", "entry_date")
-    search_fields = ("reference_number", "party_name", "description")
+    search_fields = ("reference_number", "party_name", "description", "staff__full_name")
+    list_select_related = ("staff", "created_by")
+
+
+@admin.register(UPIBookEntry)
+class UPIBookEntryAdmin(BaseAdmin):
+    list_display = ("reference_number", "entry_date", "entry_type", "category", "amount", "bank_account", "staff", "created_by")
+    list_filter = ("entry_type", "category", "entry_date")
+    search_fields = ("reference_number", "party_name", "description", "staff__full_name", "bank_account__account_name")
+    list_select_related = ("staff", "bank_account", "created_by")
 
 
 @admin.register(BankAccount)

@@ -1,6 +1,7 @@
 """
 Wallet views — thin CBVs delegating to WalletService / WalletSelector.
 """
+from django.core.paginator import Paginator
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.http import HttpResponseRedirect
@@ -11,12 +12,18 @@ from django.views.generic import DetailView, ListView
 from apps.employees.forms.wallet import (
     WalletCreditForm,
     WalletDebitForm,
+    WalletReturnFloatForm,
     WalletTopUpForm,
     WalletTransferForm,
 )
-from apps.employees.models import Wallet, WalletType
+from apps.employees.models import (
+    Wallet,
+    WalletTransactionCategory,
+    WalletTransactionType,
+    WalletType,
+)
 from apps.employees.selectors.wallet_selector import WalletSelector
-from apps.employees.services.role_service import user_can_manage_topup
+from apps.employees.services.role_service import user_can_manage_topup, user_can_view_all_profiles
 from apps.employees.services.wallet_service import WalletService
 
 
@@ -34,18 +41,24 @@ class WalletListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["page_title"] = "Wallets"
         context["total_balance"] = WalletSelector.total_wallet_balance()
+        context["can_view_all_profiles"] = user_can_view_all_profiles(self.request.user)
         return context
 
 
 class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """A single wallet (CASH or ONLINE): ledger + credit / debit / top-up."""
 
-    permission_required = "employees.view_wallettransaction"
     template_name = "employees/wallet_detail.html"
     context_object_name = "wallet"
 
     def get_object(self, queryset=None):
         return get_object_or_404(Wallet, id=self.kwargs["pk"])
+
+    def has_permission(self):
+        wallet = self.get_object()
+        return user_can_view_all_profiles(self.request.user) or (
+            wallet.employee.user and wallet.employee.user == self.request.user
+        )
 
     def _other_wallet(self, wallet):
         return WalletSelector.get_by_employee(
@@ -58,13 +71,50 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
         wallet = self.object
         context["page_title"] = f"{wallet.get_wallet_type_display()} Wallet · {wallet.employee.full_name}"
         context["balance"] = WalletService.balance_of(wallet)
-        context["transactions"] = WalletSelector.transactions(wallet, limit=150)
+        context["can_view_all_profiles"] = user_can_view_all_profiles(self.request.user)
+        context["is_own_wallet"] = (wallet.employee.user == self.request.user)
+
+        # Filters
+        from_date = self.request.GET.get("from_date", "").strip()
+        to_date = self.request.GET.get("to_date", "").strip()
+        category = self.request.GET.get("category", "").strip()
+        txn_type = self.request.GET.get("type", "").strip()
+        q = self.request.GET.get("q", "").strip()
+
+        filters = {
+            "from_date": from_date or None,
+            "to_date": to_date or None,
+            "category": category or None,
+            "transaction_type": txn_type or None,
+            "q": q or None,
+        }
+
+        qs = WalletSelector.filter_transactions(wallet, filters)
+        paginator = Paginator(qs, 25)
+        page_number = self.request.GET.get("page")
+        page_obj = paginator.get_page(page_number)
+
+        context["transactions"] = page_obj
+        context["page_obj"] = page_obj
+        context["is_paginated"] = page_obj.has_other_pages()
+        context["total_txns_count"] = paginator.count
+        context["filter_from_date"] = from_date
+        context["filter_to_date"] = to_date
+        context["filter_category"] = category
+        context["filter_type"] = txn_type
+        context["filter_q"] = q
+        context["categories"] = WalletTransactionCategory.choices
+        context["types"] = WalletTransactionType.choices
+
         context["other_wallet"] = self._other_wallet(wallet)
+        from apps.employees.selectors.employee_selector import EmployeeSelector
+        context["income_stats"] = EmployeeSelector.get_income_stats(wallet.employee)
         can_topup = user_can_manage_topup(self.request.user)
         context["can_topup"] = can_topup
         if self.request.user.has_perm("employees.add_wallettransaction"):
             context["credit_form"] = WalletCreditForm()
             context["debit_form"] = WalletDebitForm()
+            context["return_float_form"] = WalletReturnFloatForm()
             if can_topup:
                 context["topup_form"] = WalletTopUpForm(wallet_type=wallet.wallet_type)
             context["transfer_form"] = WalletTransferForm(exclude_employee=wallet.employee)
@@ -72,7 +122,7 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
 
     def post(self, request, pk):
         wallet = get_object_or_404(Wallet, id=pk)
-        if not request.user.has_perm("employees.add_wallettransaction"):
+        if not (request.user.has_perm("employees.add_wallettransaction") or user_can_manage_topup(request.user)):
             return self.handle_no_permission()
 
         action = request.POST.get("action")
@@ -103,6 +153,24 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
                     )
                 else:
                     return self._form_error(request, wallet, "topup", form)
+            elif action == "return_float":
+                form = WalletReturnFloatForm(request.POST)
+                if form.is_valid():
+                    data = form.cleaned_data
+                    WalletService.return_float(
+                        employee=wallet.employee,
+                        wallet_type=wallet.wallet_type,
+                        amount=data["amount"],
+                        description=data.get("description", ""),
+                        by=request.user,
+                    )
+                    messages.success(
+                        request,
+                        f"Successfully returned counter float ₹{data['amount']} from {wallet.employee.full_name}'s "
+                        f"{wallet.get_wallet_type_display()} wallet back to Shop.",
+                    )
+                else:
+                    return self._form_error(request, wallet, "return_float", form)
             elif action == "credit":
                 form = WalletCreditForm(request.POST)
                 if form.is_valid():
@@ -166,6 +234,7 @@ class WalletDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
             form if action == "topup"
             else (WalletTopUpForm(wallet_type=wallet.wallet_type) if can_topup else None)
         )
+        context["return_float_form"] = form if action == "return_float" else WalletReturnFloatForm()
         context["credit_form"] = form if action == "credit" else WalletCreditForm()
         context["debit_form"] = form if action == "debit" else WalletDebitForm()
         context["transfer_form"] = (

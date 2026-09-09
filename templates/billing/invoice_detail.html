@@ -68,7 +68,13 @@ function copyReceiptText() {
                                 <tr>
                                     <td>{{ line.description }}</td>
                                     <td class="text-center">{{ line.qty }}</td>
-                                    <td class="text-end">{{ line.unit_price|inr }}</td>
+                                    <td class="text-end">
+                                        {% if line.unit_price > 1 or line.amount == 1 %}
+                                            {{ line.unit_price|inr }}
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end fw-semibold">{{ line.amount|inr }}</td>
                                 </tr>
                                 {% if line.pass_through_amount > 0 %}
@@ -116,10 +122,24 @@ function copyReceiptText() {
                                 <td class="text-end">{{ invoice.total|inr }}</td>
                             </tr>
                             {% if invoice.pass_through_amount > 0 %}
+                            {% if invoice.cash_pass_through_amount > 0 %}
+                            <tr class="text-warning">
+                                <td colspan="3" class="text-end">Cash handed to customer</td>
+                                <td class="text-end">-{{ invoice.cash_pass_through_amount|inr }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if invoice.online_pass_through_amount > 0 %}
+                            <tr class="text-warning">
+                                <td colspan="3" class="text-end">Online paid on customer's behalf</td>
+                                <td class="text-end">-{{ invoice.online_pass_through_amount|inr }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if invoice.cash_pass_through_amount == 0 and invoice.online_pass_through_amount == 0 %}
                             <tr class="text-warning">
                                 <td colspan="3" class="text-end">Pass-through (not income)</td>
                                 <td class="text-end">-{{ invoice.pass_through_amount|inr }}</td>
                             </tr>
+                            {% endif %}
                             <tr class="text-success fw-semibold">
                                 <td colspan="3" class="text-end">Shop income</td>
                                 <td class="text-end">{{ invoice.income_amount|inr }}</td>
@@ -145,8 +165,9 @@ function copyReceiptText() {
                     <thead class="table-light">
                         <tr>
                             <th scope="col">Date</th>
+                            <th scope="col">Collected / Settled By</th>
                             <th scope="col">Mode</th>
-                            <th scope="col">Bank / UPI</th>
+                            <th scope="col">Account / Hand</th>
                             <th scope="col" class="text-end">Amount</th>
                             <th scope="col">Notes</th>
                         </tr>
@@ -154,10 +175,24 @@ function copyReceiptText() {
                     <tbody>
                         {% for payment in payments %}
                             <tr>
-                                <td>{{ payment.payment_date|date:"d M Y" }}</td>
-                                <td>{{ payment.get_payment_mode_display }}</td>
-                                <td class="small text-muted">{{ payment.bank_account.account_name|default:"—" }}</td>
-                                <td class="text-end fw-semibold">{{ payment.amount|inr }}</td>
+                                <td>{{ payment.created_at|date:"d M Y H:i"|default:payment.payment_date }}</td>
+                                <td class="fw-medium text-dark">
+                                    <i class="bi bi-person-check me-1 text-primary"></i>
+                                    {{ payment.created_by.get_full_name|default:payment.created_by.username|default:"System" }}
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">{{ payment.get_payment_mode_display }}</span>
+                                </td>
+                                <td class="small text-muted">
+                                    {% if payment.bank_account %}
+                                        <i class="bi bi-bank me-1"></i>{{ payment.bank_account.account_name }}
+                                    {% elif payment.payment_mode == 'CUSTOMER_WALLET' %}
+                                        <i class="bi bi-wallet2 me-1"></i>Customer Advance Balance
+                                    {% else %}
+                                        <i class="bi bi-wallet me-1"></i>Staff Hand / Counter Float
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold text-success">{{ payment.amount|inr }}</td>
                                 <td class="small text-muted">{{ payment.notes|default:"—" }}</td>
                             </tr>
                         {% endfor %}

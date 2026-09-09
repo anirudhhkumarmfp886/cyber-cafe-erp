@@ -40,6 +40,13 @@
             </a>
         </li>
         <li class="nav-item">
+            <a href="{% url 'finance:upibook_list' %}"
+               class="nav-link {% if request.resolver_match.app_name == 'finance' and request.resolver_match.url_name == 'upibook_list' %}active{% endif %}"
+               title="Shop UPI Book">
+                <i class="bi bi-qr-code-scan nav-icon me-2"></i><span class="nav-text">Shop UPI Book</span>
+            </a>
+        </li>
+        <li class="nav-item">
             <a href="{% url 'finance:bank_list' %}"
                class="nav-link {% if request.resolver_match.app_name == 'finance' and request.resolver_match.url_name == 'bank_list' %}active{% endif %}"
                title="Bank Ledger">

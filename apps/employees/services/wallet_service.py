@@ -27,6 +27,7 @@ from apps.employees.models import (
 from apps.finance.models.enums import BankTransactionCategory, CashEntryCategory
 from apps.finance.services.bank_service import BankService
 from apps.finance.services.cashbook_service import CashBookService
+from apps.finance.services.upibook_service import UPIBookService
 
 
 class WalletService:
@@ -38,6 +39,18 @@ class WalletService:
     @staticmethod
     def balance_of(wallet: Wallet):
         total = wallet.transactions.aggregate(
+            net=Sum(
+                Case(
+                    When(transaction_type=WalletTransactionType.CREDIT, then=F("amount")),
+                    default=-F("amount"),
+                )
+            )
+        )["net"]
+        return total or 0
+
+    @staticmethod
+    def balance_of_on(wallet: Wallet, day: date):
+        total = wallet.transactions.filter(entry_date__lte=day).aggregate(
             net=Sum(
                 Case(
                     When(transaction_type=WalletTransactionType.CREDIT, then=F("amount")),
@@ -65,46 +78,142 @@ class WalletService:
     ) -> WalletTransaction:
         """Owner funds a staff wallet and mirrors it in the shop ledgers.
 
-        CASH top-up   -> staff CASH wallet +amount, shop cash book -amount
-                         (ADVANCE float given to staff).
-        ONLINE top-up -> staff ONLINE wallet +amount, shop bank account
-                         -amount (owner transfers the money out to staff).
+        CASH top-up   -> staff CASH wallet +amount, shop cash book -amount (FLOAT_OUT).
+        ONLINE top-up -> staff ONLINE wallet +amount, shop UPI book -amount (FLOAT_OUT).
+                         If UPI book balance is lower than amount and a bank account is
+                         provided, loads float from bank to UPI book first.
         """
         wallet = WalletService.get_or_create_wallet(employee, wallet_type)
-        WalletService.credit(
-            wallet=wallet,
-            amount=amount,
-            category=WalletTransactionCategory.CASH_TOPUP,
-            description=description or f"Owner funding to {employee.full_name}",
-            source="Owner",
-            destination=employee.full_name,
-            by=by,
-            entry_date=entry_date,
-        )
         if wallet_type == WalletType.CASH:
+            shop_cash = CashBookService.balance()
+            if amount > shop_cash:
+                raise ValueError(
+                    f"Insufficient shop cash drawer balance (Available: ₹{shop_cash:.2f}). "
+                    "Please deposit cash into the drawer first."
+                )
+            WalletService.credit(
+                wallet=wallet,
+                amount=amount,
+                category=WalletTransactionCategory.FLOAT_IN,
+                description=description or f"Counter cash float from Owner to {employee.full_name}",
+                source="Owner",
+                destination=employee.full_name,
+                by=by,
+                entry_date=entry_date,
+            )
             CashBookService.record_expense(
                 amount=amount,
-                category=CashEntryCategory.ADVANCE,
+                category=CashEntryCategory.FLOAT_OUT,
                 payment_mode="CASH",
                 party_name=employee.full_name,
-                description=f"Owner cash float given to {employee.full_name}",
+                description=f"Counter cash float given to {employee.full_name}",
+                entry_date=entry_date,
+                by=by,
+                staff=None,
+            )
+        else:
+            shop_upi = UPIBookService.balance()
+            if amount > shop_upi:
+                if bank_account is not None:
+                    needed = amount - shop_upi
+                    UPIBookService.fund_from_bank(
+                        bank_account=bank_account,
+                        amount=needed,
+                        description=f"Auto-load float for staff top-up ({employee.full_name})",
+                        entry_date=entry_date,
+                        by=by,
+                    )
+                else:
+                    raise ValueError(
+                        f"Insufficient Shop UPI Book balance (Available: ₹{shop_upi:.2f}). "
+                        "Please transfer float from bank to UPI Book first."
+                    )
+            WalletService.credit(
+                wallet=wallet,
+                amount=amount,
+                category=WalletTransactionCategory.FLOAT_IN,
+                description=description or f"Counter UPI float from Shop UPI Book to {employee.full_name}",
+                source="Shop UPI Book",
+                destination=employee.full_name,
+                by=by,
+                entry_date=entry_date,
+            )
+            UPIBookService.record_expense(
+                amount=amount,
+                category=CashEntryCategory.FLOAT_OUT,
+                bank_account=bank_account,
+                party_name=employee.full_name,
+                description=f"Counter UPI float given to {employee.full_name}",
                 entry_date=entry_date,
                 by=by,
                 staff=employee,
             )
-        else:
-            if bank_account is None:
-                raise ValueError("ONLINE wallet top-up requires a bank account.")
-            BankService.withdraw(
-                account=bank_account,
+
+        return WalletService.balance_of(wallet)
+
+    @staticmethod
+    @transaction.atomic
+    def return_float(
+        *,
+        employee: Employee,
+        wallet_type: str = WalletType.CASH,
+        amount,
+        bank_account=None,
+        description: str = "",
+        by=None,
+        entry_date=None,
+    ) -> tuple:
+        """Staff returns daily counter float back to shop.
+
+        CASH float return   -> staff CASH wallet debited (FLOAT_OUT),
+                               shop Cash Book credited (FLOAT_IN).
+        ONLINE float return -> staff ONLINE wallet debited (FLOAT_OUT),
+                               shop UPI Book credited (FLOAT_IN).
+        """
+        wallet = WalletService.get_or_create_wallet(employee, wallet_type)
+        current_bal = WalletService.balance_of(wallet)
+        if amount > current_bal:
+            raise ValueError(
+                f"Insufficient wallet balance to return ₹{amount:.2f}. "
+                f"Available in {wallet.get_wallet_type_display()} wallet: ₹{current_bal:.2f}."
+            )
+
+        entry_date = entry_date or date.today()
+        debit_txn = WalletService.debit(
+            wallet=wallet,
+            amount=amount,
+            category=WalletTransactionCategory.FLOAT_OUT,
+            description=description or f"Counter float returned by {employee.full_name}",
+            source=employee.full_name,
+            destination="Shop Galla" if wallet_type == WalletType.CASH else "Shop UPI Book",
+            by=by,
+            entry_date=entry_date,
+        )
+
+        if wallet_type == WalletType.CASH:
+            cash_entry = CashBookService.record_income(
                 amount=amount,
-                category=BankTransactionCategory.WITHDRAWAL,
+                category=CashEntryCategory.FLOAT_IN,
+                payment_mode="CASH",
                 party_name=employee.full_name,
-                description=f"Owner UPI float given to {employee.full_name}",
+                description=description or f"Counter float returned by {employee.full_name}",
                 entry_date=entry_date,
                 by=by,
+                staff=None,
             )
-        return WalletService.balance_of(wallet)
+            return debit_txn, cash_entry
+        else:
+            upi_entry = UPIBookService.record_income(
+                amount=amount,
+                category=CashEntryCategory.FLOAT_IN,
+                bank_account=bank_account,
+                party_name=employee.full_name,
+                description=description or f"UPI counter float returned by {employee.full_name}",
+                entry_date=entry_date,
+                by=by,
+                staff=employee,
+            )
+            return debit_txn, upi_entry
 
     @staticmethod
     @transaction.atomic

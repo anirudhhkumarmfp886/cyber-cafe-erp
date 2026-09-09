@@ -95,6 +95,41 @@ class Employee(BaseModel):
         help_text="Grant permission to perform wallet top-ups and owner cash deposit/withdrawal.",
     )
 
+    #: Custom toggle for flexible payment / personal UPI collection (e.g. during rush hours).
+    can_collect_personal_upi = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Allow staff to collect payments into their personal Staff UPI/Wallet during rush hours.",
+    )
+
+    #: Custom toggle for expense recording: controls which staff can record shop expenses from cash float/bank.
+    can_record_expenses = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Allow staff to record shop expenses from counter float or shop bank account.",
+    )
+
+    #: Custom toggle to view entire shop main galla and shop UPI books.
+    can_view_shop_finance = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Allow staff to view Entire Shop Main Galla & Shop UPI Book.",
+    )
+
+    #: Custom toggle: allows manager/staff to assign and modify staff permissions like an owner.
+    can_manage_permissions = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Grant permission to assign and modify permissions for other employees.",
+    )
+
+    #: Custom toggle: allows staff to set or modify customer credit limit (Udhaar on account).
+    can_manage_customer_credit = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Grant permission to set and modify customer credit limits.",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Employee"

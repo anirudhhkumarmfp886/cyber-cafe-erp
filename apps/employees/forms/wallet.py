@@ -13,29 +13,25 @@ class WalletTopUpForm(forms.Form):
         decimal_places=2,
         min_value=0.01,
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "placeholder": "0.00"}),
-        label="Amount",
+        label="Amount (₹)",
     )
     bank_account = forms.ModelChoiceField(
         queryset=BankAccount.objects.none(),
         required=False,
-        label="Source bank account",
-        help_text="Required for ONLINE wallet top-up (owner transfers the money out).",
-        widget=forms.Select(attrs={"class": "form-select"}),
+        widget=forms.HiddenInput(),
     )
     description = forms.CharField(
         max_length=500,
         required=False,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2, "placeholder": "Float distribution notes (optional)"}),
+        label="Notes / Description",
     )
 
     def __init__(self, *args, wallet_type=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["bank_account"].queryset = BankAccount.objects.order_by("account_name")
-        if wallet_type == WalletType.ONLINE:
-            self.fields["bank_account"].required = True
-        else:
-            self.fields["bank_account"].widget = forms.HiddenInput()
-            self.fields["bank_account"].help_text = ""
+        self.fields["bank_account"].queryset = BankAccount.objects.filter(is_active=True).order_by("account_name")
+        self.fields["bank_account"].required = False
+        self.fields["bank_account"].widget = forms.HiddenInput()
 
 
 class WalletCreditForm(forms.Form):
@@ -47,18 +43,21 @@ class WalletCreditForm(forms.Form):
     )
     category = forms.ChoiceField(
         choices=[
-            (WalletTransactionCategory.CASH_TOPUP, "Cash Top-up"),
+            (WalletTransactionCategory.ADJUSTMENT, "Adjustment (Manual / Float)"),
+            (WalletTransactionCategory.PAYMENT_COLLECTED, "Payment Collected (Customer / External)"),
+            (WalletTransactionCategory.BONUS, "Bonus / Incentive"),
             (WalletTransactionCategory.SALARY, "Salary Payment"),
-            (WalletTransactionCategory.BONUS, "Bonus"),
-            (WalletTransactionCategory.PAYMENT_COLLECTED, "Payment Collected"),
-            (WalletTransactionCategory.ADJUSTMENT, "Adjustment"),
+            (WalletTransactionCategory.CASH_TOPUP, "Direct Cash Top-up"),
         ],
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     source = forms.CharField(
         max_length=150,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. Owner cash, Cash counter"}),
+        required=True,
+        label="Source (Paisa kahan se aaya)",
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "e.g. Initial Counter Float, CSC Commission, Customer Advance"}
+        ),
     )
     description = forms.CharField(
         max_length=500,
@@ -76,24 +75,28 @@ class WalletDebitForm(forms.Form):
     )
     category = forms.ChoiceField(
         choices=[
+            (WalletTransactionCategory.ADJUSTMENT, "Adjustment (Manual / Drawer Return)"),
+            (WalletTransactionCategory.EXPENSE, "Expense (Direct Cash Outflow)"),
+            (WalletTransactionCategory.ADVANCE, "Advance Given"),
             (WalletTransactionCategory.CASH_WITHDRAWAL, "Cash Withdrawal"),
-            (WalletTransactionCategory.ADVANCE, "Advance"),
             (WalletTransactionCategory.PENALTY, "Penalty"),
-            (WalletTransactionCategory.EXPENSE, "Expense"),
-            (WalletTransactionCategory.ADJUSTMENT, "Adjustment"),
         ],
         widget=forms.Select(attrs={"class": "form-select"}),
     )
     destination = forms.CharField(
         max_length=150,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. Cash counter, Party"}),
+        required=True,
+        label="Destination (Kahan / Kisko diya)",
+        widget=forms.TextInput(
+            attrs={"class": "form-control", "placeholder": "e.g. Handed to Owner, Cash Drawer Return, Direct Expense"}
+        ),
     )
     description = forms.CharField(
         max_length=500,
         required=False,
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
     )
+
 
 
 class WalletTransferForm(forms.Form):
@@ -120,3 +123,21 @@ class WalletTransferForm(forms.Form):
         if exclude_employee:
             queryset = queryset.exclude(pk=exclude_employee.pk)
         self.fields["to_employee"].queryset = queryset
+
+
+class WalletReturnFloatForm(forms.Form):
+    """Staff returns daily counter float back to shop."""
+
+    amount = forms.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        min_value=0.01,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "placeholder": "0.00"}),
+        label="Amount to Return (₹)",
+    )
+    description = forms.CharField(
+        max_length=500,
+        required=False,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2, "placeholder": "Daily evening float settlement notes (optional)"}),
+        label="Notes / Settlement Remarks",
+    )

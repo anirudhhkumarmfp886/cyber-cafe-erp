@@ -38,6 +38,7 @@ from apps.customers.models import Customer
 from apps.employees.models import Employee, Role, Wallet, WalletTransaction, WorkLogEntry
 from apps.employees.services.role_service import ROLE_GROUP_MAP
 from apps.finance.models import BankAccount, BankTransaction, CashBookEntry
+from apps.finance.models.upibook import UPIBookEntry
 from apps.services.models import Category, Service, ServiceCustomField, ServicePriceHistory
 from apps.workentry.models import WorkEntry
 from apps.inventory.models import StockItem, StockMovement
@@ -48,6 +49,7 @@ _PERMISSION_MODELS = [
     WalletTransaction,
     WorkLogEntry,
     CashBookEntry,
+    UPIBookEntry,
     BankAccount,
     BankTransaction,
     Customer,
@@ -93,7 +95,7 @@ class Command(BaseCommand):
         all_perms = Permission.objects.filter(content_type__in=content_types)
 
         all_models = set(_PERMISSION_MODELS)
-        finance_models = {Wallet, WalletTransaction, CashBookEntry, BankAccount, BankTransaction}
+        finance_models = {Wallet, WalletTransaction, CashBookEntry, UPIBookEntry, BankAccount, BankTransaction}
         inventory_models = {StockItem, StockMovement}
         billing_models = {Invoice, InvoiceLine, InvoicePayment, CashOut}
 

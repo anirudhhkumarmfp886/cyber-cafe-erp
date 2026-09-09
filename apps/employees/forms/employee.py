@@ -3,6 +3,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 
 from apps.employees.models import Employee
+from apps.employees.services.role_service import user_can_manage_permissions
 
 User = get_user_model()
 
@@ -34,6 +35,31 @@ class EmployeeCreateForm(forms.ModelForm):
         label="Top-Up & Owner Cash Access",
         help_text="Allow this employee to perform wallet top-ups and owner cash deposit/withdrawal.",
     )
+    can_record_expenses = forms.BooleanField(
+        required=False,
+        label="Expense Recording Access (Can Record Expenses)",
+        help_text="Allow this employee to record shop expenses from counter float or shop bank.",
+    )
+    can_collect_personal_upi = forms.BooleanField(
+        required=False,
+        label="Personal UPI Collection Access",
+        help_text="Allow staff to collect payments into their personal Staff UPI/Wallet during rush hours.",
+    )
+    can_view_shop_finance = forms.BooleanField(
+        required=False,
+        label="Entire Shop Galla & UPI Access",
+        help_text="Allow staff to view entire shop cashbook (main galla) and shop UPI books.",
+    )
+    can_manage_permissions = forms.BooleanField(
+        required=False,
+        label="Permission Management Access",
+        help_text="Allow this employee to assign and modify permissions for other staff.",
+    )
+    can_manage_customer_credit = forms.BooleanField(
+        required=False,
+        label="Customer Credit Management Access",
+        help_text="Allow this employee to set and modify customer credit limits.",
+    )
 
     class Meta:
         model = Employee
@@ -43,6 +69,11 @@ class EmployeeCreateForm(forms.ModelForm):
             "status",
             "can_create_bills",
             "can_manage_topup",
+            "can_record_expenses",
+            "can_collect_personal_upi",
+            "can_view_shop_finance",
+            "can_manage_permissions",
+            "can_manage_customer_credit",
             "gender",
             "date_of_birth",
             "date_of_joining",
@@ -65,6 +96,22 @@ class EmployeeCreateForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
             "hourly_rate": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user and not user_can_manage_permissions(user):
+            for field_name in [
+                "can_create_bills",
+                "can_manage_topup",
+                "can_record_expenses",
+                "can_collect_personal_upi",
+                "can_view_shop_finance",
+                "can_manage_permissions",
+                "can_manage_customer_credit",
+                "role",
+            ]:
+                if field_name in self.fields:
+                    self.fields[field_name].disabled = True
 
     def clean_username(self):
         username = self.cleaned_data["username"].strip()
@@ -94,6 +141,31 @@ class EmployeeUpdateForm(forms.ModelForm):
         label="Top-Up & Owner Cash Access",
         help_text="Allow this employee to perform wallet top-ups and owner cash deposit/withdrawal.",
     )
+    can_record_expenses = forms.BooleanField(
+        required=False,
+        label="Expense Recording Access (Can Record Expenses)",
+        help_text="Allow this employee to record shop expenses from counter float or shop bank.",
+    )
+    can_collect_personal_upi = forms.BooleanField(
+        required=False,
+        label="Personal UPI Collection Access",
+        help_text="Allow staff to collect payments into their personal Staff UPI/Wallet during rush hours.",
+    )
+    can_view_shop_finance = forms.BooleanField(
+        required=False,
+        label="Entire Shop Galla & UPI Access",
+        help_text="Allow staff to view entire shop cashbook (main galla) and shop UPI books.",
+    )
+    can_manage_permissions = forms.BooleanField(
+        required=False,
+        label="Permission Management Access",
+        help_text="Allow this employee to assign and modify permissions for other staff.",
+    )
+    can_manage_customer_credit = forms.BooleanField(
+        required=False,
+        label="Customer Credit Management Access",
+        help_text="Allow this employee to set and modify customer credit limits.",
+    )
 
     class Meta:
         model = Employee
@@ -103,6 +175,11 @@ class EmployeeUpdateForm(forms.ModelForm):
             "status",
             "can_create_bills",
             "can_manage_topup",
+            "can_record_expenses",
+            "can_collect_personal_upi",
+            "can_view_shop_finance",
+            "can_manage_permissions",
+            "can_manage_customer_credit",
             "gender",
             "date_of_birth",
             "date_of_joining",
@@ -125,5 +202,22 @@ class EmployeeUpdateForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
             "hourly_rate": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user and not user_can_manage_permissions(user):
+            for field_name in [
+                "can_create_bills",
+                "can_manage_topup",
+                "can_record_expenses",
+                "can_collect_personal_upi",
+                "can_view_shop_finance",
+                "can_manage_permissions",
+                "can_manage_customer_credit",
+                "role",
+            ]:
+                if field_name in self.fields:
+                    self.fields[field_name].disabled = True
+
 
 

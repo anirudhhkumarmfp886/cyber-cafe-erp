@@ -1,6 +1,8 @@
 """Bank ledger views."""
+from django.core.paginator import Paginator
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db import IntegrityError
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
@@ -14,6 +16,7 @@ from apps.finance.forms.bank import (
     BankWithdrawalForm,
 )
 from apps.finance.models import BankAccount
+from apps.finance.models.enums import BankTransactionCategory, BankTransactionType
 from apps.finance.selectors.bank_selector import BankSelector
 from apps.finance.services.bank_service import BankService
 
@@ -60,9 +63,10 @@ class BankAccountListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
                     by=request.user,
                 )
                 messages.success(request, f"Account {account.account_name} created.")
-            except ValueError as exc:
-                messages.error(request, str(exc))
-                form.add_error(None, str(exc))
+            except (ValueError, IntegrityError) as exc:
+                err_msg = "Bank account with this Account number already exists." if isinstance(exc, IntegrityError) else str(exc)
+                messages.error(request, err_msg)
+                form.add_error("account_number" if isinstance(exc, IntegrityError) else None, err_msg)
                 return self.get_form_error_response(form)
         else:
             return self.get_form_error_response(form)
@@ -92,7 +96,39 @@ class BankAccountDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailV
         account = self.object
         context["page_title"] = f"Bank · {account.account_name}"
         context["balance"] = BankService.balance_of(account)
-        context["transactions"] = BankSelector.transactions(account, limit=150)
+
+        # Filters
+        from_date = self.request.GET.get("from_date", "").strip()
+        to_date = self.request.GET.get("to_date", "").strip()
+        category = self.request.GET.get("category", "").strip()
+        txn_type = self.request.GET.get("type", "").strip()
+        q = self.request.GET.get("q", "").strip()
+
+        filters = {
+            "from_date": from_date or None,
+            "to_date": to_date or None,
+            "category": category or None,
+            "transaction_type": txn_type or None,
+            "q": q or None,
+        }
+
+        qs = BankSelector.filter_transactions(account, filters)
+        paginator = Paginator(qs, 25)
+        page_number = self.request.GET.get("page")
+        page_obj = paginator.get_page(page_number)
+
+        context["transactions"] = page_obj
+        context["page_obj"] = page_obj
+        context["is_paginated"] = page_obj.has_other_pages()
+        context["total_txns_count"] = paginator.count
+        context["filter_from_date"] = from_date
+        context["filter_to_date"] = to_date
+        context["filter_category"] = category
+        context["filter_type"] = txn_type
+        context["filter_q"] = q
+        context["categories"] = BankTransactionCategory.choices
+        context["types"] = BankTransactionType.choices
+
         if self.request.user.has_perm("finance.add_banktransaction"):
             context["deposit_form"] = BankDepositForm()
             context["withdrawal_form"] = BankWithdrawalForm()

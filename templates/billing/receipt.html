@@ -102,26 +102,30 @@
                 <tr>
                     <td>
                         <div class="fw-semibold">{{ line.description }}</div>
-                        {% if line.pass_through_amount > 0 %}
-                            <div class="text-muted" style="font-size: 11px;">
-                                <span>• Cash Out: {{ line.pass_through_amount|inr }}</span><br>
-                                <span>• Comm / Fee: {{ line.income_amount|inr }}</span>
-                            </div>
-                        {% elif line.withdrawal_summary %}
-                            <div class="text-muted" style="font-size: 11px;">
-                                <span>• {{ line.withdrawal_summary }}</span>
-                            </div>
-                        {% endif %}
                         {% for val in line.field_values.all %}
-                            {% if val.field_type != 'BANK_TRANSFER' and val.field_type != 'PERCENT' and val.field_type != 'BANK_ACCOUNT' and val.value_text %}
+                            {% if val.field_type != 'BANK_TRANSFER' and val.field_type != 'BANK_ACCOUNT' and val.value_text %}
                                 <div class="text-muted" style="font-size: 10px;">
-                                    {{ val.field_label }}: {{ val.display_value }}
+                                    {% if val.field_type == 'PERCENT' %}
+                                        Service Charge / Fee: {{ line.income_amount|inr }}
+                                    {% else %}
+                                        {{ val.field_label }}: {{ val.display_value }}
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         {% endfor %}
                     </td>
                     <td style="text-align: center; vertical-align: top;">{{ line.qty }}</td>
-                    <td class="text-right" style="vertical-align: top;">{{ line.unit_price|inr }}</td>
+                    <td class="text-right" style="vertical-align: top;">
+                        {% if line.unit_price > 1 %}
+                            {{ line.unit_price|inr }}
+                        {% elif line.qty > 1 and line.amount > 1 %}
+                            -
+                        {% elif line.amount == 1 %}
+                            {{ line.unit_price|inr }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                     <td class="text-right fw-bold" style="vertical-align: top;">{{ line.amount|inr }}</td>
                 </tr>
             {% endfor %}
@@ -145,17 +149,6 @@
         <span>Total Amount:</span>
         <span>{{ invoice.total|inr }}</span>
     </div>
-
-    {% if invoice.pass_through_amount > 0 %}
-    <div class="d-flex justify-content-between small text-muted">
-        <span>Cash Handed to Customer:</span>
-        <span>{{ invoice.pass_through_amount|inr }}</span>
-    </div>
-    <div class="d-flex justify-content-between small text-muted">
-        <span>Shop Service Commission:</span>
-        <span>{{ invoice.income_amount|inr }}</span>
-    </div>
-    {% endif %}
 
     {% if payments and payments|length > 1 %}
     <div class="receipt-divider"></div>

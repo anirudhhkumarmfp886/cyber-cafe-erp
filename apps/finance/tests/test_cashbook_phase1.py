@@ -11,7 +11,7 @@ from apps.employees.models import Role
 from apps.employees.services.employee_service import EmployeeService
 from apps.employees.services.role_service import assign_role_group
 from apps.finance.forms.cashbook import CashBookEntryForm
-from apps.finance.models import CashBookEntry
+from apps.finance.models import BankAccount, BankTransaction, CashBookEntry
 from apps.finance.models.enums import (
     CashEntryCategory,
     CashEntryType,
@@ -19,7 +19,9 @@ from apps.finance.models.enums import (
     INCOME_CATEGORIES,
 )
 from apps.finance.selectors.cashbook_selector import CashBookSelector
+from apps.finance.services.bank_service import BankService
 from apps.finance.services.cashbook_service import CashBookService
+
 
 User = get_user_model()
 
@@ -164,9 +166,11 @@ class CashBookViewTests(TestCase):
         self.staff = EmployeeService.create_employee(
             data={"username": "view-staff", "password": "Pass#123", "full_name": "View Staff", "role": Role.STAFF}
         )
+        self.owner_user = self.owner.user
         self.staff_user = self.staff.user
 
     def _url(self):
+
         return reverse("finance:cashbook_list")
 
     def test_owner_sees_shop_cash_book_and_owner_cash_card(self):
@@ -229,12 +233,21 @@ class CashBookViewTests(TestCase):
         self.client.login(username="view-owner", password="Pass#123")
         response = self.client.post(
             reverse("finance:cashbook_owner_cash"),
-            {"action": "WITHDRAW", "amount": "2000", "payment_mode": "CASH", "description": "personal"},
+            {"action": "WITHDRAW", "source": "DIRECT", "amount": "2000", "payment_mode": "CASH", "description": "personal"},
         )
         self.assertEqual(response.status_code, 302)
         entry = CashBookEntry.objects.get()
         self.assertEqual(entry.category, CashEntryCategory.OWNER_WITHDRAWAL)
         self.assertEqual(entry.entry_type, CashEntryType.EXPENSE)
+
+    def test_owner_cash_missing_source_fails(self):
+        self.client.login(username="view-owner", password="Pass#123")
+        response = self.client.post(
+            reverse("finance:cashbook_owner_cash"),
+            {"action": "WITHDRAW", "amount": "2000", "payment_mode": "CASH"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(CashBookEntry.objects.count(), 0)
 
     def test_staff_scoped_as_on_balance(self):
         CashBookService.record_income(amount=1000, entry_date=date(2026, 1, 1), by=self.staff_user)
@@ -243,3 +256,149 @@ class CashBookViewTests(TestCase):
         response = self.client.get(self._url(), {"as_on": "2026-01-01"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["as_on_balance"], 1000)
+
+    def test_owner_cash_deposit_from_bank_account(self):
+        bank = BankService.create_account(
+            account_name="Shop SBI",
+            bank_name="SBI",
+            account_number="9988776655",
+            opening_balance=10000,
+            by=self.owner_user,
+        )
+        self.client.login(username="view-owner", password="Pass#123")
+        response = self.client.post(
+            reverse("finance:cashbook_owner_cash"),
+            {
+                "action": "DEPOSIT",
+                "source": "BANK",
+                "bank_account": str(bank.pk),
+                "amount": "4000",
+                "payment_mode": "CASH",
+                "description": "ATM cash withdrawal for drawer",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        # Bank should have 10000 - 4000 = 6000
+        self.assertEqual(BankService.balance_of(bank), 6000)
+        # CashBook should have 4000
+        self.assertEqual(CashBookService.balance(), 4000)
+        entry = CashBookEntry.objects.get(category=CashEntryCategory.OWNER_DEPOSIT)
+        self.assertEqual(entry.amount, 4000)
+        self.assertIn("Shop SBI", entry.description)
+        bank_txn = BankTransaction.objects.get(account=bank)
+        self.assertEqual(bank_txn.amount, 4000)
+        self.assertEqual(bank_txn.related_reference, entry.reference_number)
+
+    def test_owner_cash_deposit_from_bank_insufficient_balance(self):
+        bank = BankService.create_account(
+            account_name="Low Balance Bank",
+            bank_name="HDFC",
+            account_number="1122334455",
+            opening_balance=500,
+            by=self.owner_user,
+        )
+        self.client.login(username="view-owner", password="Pass#123")
+        response = self.client.post(
+            reverse("finance:cashbook_owner_cash"),
+            {
+                "action": "DEPOSIT",
+                "source": "BANK",
+                "bank_account": str(bank.pk),
+                "amount": "2000",
+                "payment_mode": "CASH",
+                "description": "Exceeding balance",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        # Bank and Cashbook untouched
+        self.assertEqual(BankService.balance_of(bank), 500)
+        self.assertEqual(CashBookService.balance(), 0)
+
+    def test_owner_cash_withdraw_to_bank_account(self):
+        bank = BankService.create_account(
+            account_name="Deposit SBI",
+            bank_name="SBI",
+            account_number="5544332211",
+            opening_balance=1000,
+            by=self.owner_user,
+        )
+        self.client.login(username="view-owner", password="Pass#123")
+        response = self.client.post(
+            reverse("finance:cashbook_owner_cash"),
+            {
+                "action": "WITHDRAW",
+                "source": "BANK",
+                "bank_account": str(bank.pk),
+                "amount": "2500",
+                "payment_mode": "CASH",
+                "description": "Cash deposited into bank",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        # Bank should have 1000 + 2500 = 3500
+        self.assertEqual(BankService.balance_of(bank), 3500)
+        # CashBook should have -2500 (expense recorded)
+        self.assertEqual(CashBookService.balance(), -2500)
+        entry = CashBookEntry.objects.get(category=CashEntryCategory.OWNER_WITHDRAWAL)
+        self.assertEqual(entry.amount, 2500)
+        bank_txn = BankTransaction.objects.get(account=bank)
+        self.assertEqual(bank_txn.amount, 2500)
+        self.assertEqual(bank_txn.related_reference, entry.reference_number)
+
+    def test_record_expense_via_upi_debits_bank_and_creates_cashbook_entry(self):
+        bank = BankService.create_account(
+            account_name="Expense SBI",
+            bank_name="SBI",
+            account_number="7788990011",
+            opening_balance=5000,
+            by=self.owner_user,
+        )
+        self.client.login(username="view-owner", password="Pass#123")
+        response = self.client.post(
+            self._url(),
+            {
+                "entry_type": "EXPENSE",
+                "category": "ELECTRICITY",
+                "payment_mode": "UPI",
+                "bank_account": str(bank.pk),
+                "amount": "1200",
+                "party_name": "Electricity Board",
+                "description": "August Bill",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(BankService.balance_of(bank), 3800)
+        entry = CashBookEntry.objects.get(category=CashEntryCategory.ELECTRICITY)
+        self.assertEqual(entry.amount, 1200)
+        self.assertEqual(entry.payment_mode, "UPI")
+        self.assertIn("Expense SBI", entry.description)
+        bank_txn = BankTransaction.objects.get(account=bank)
+        self.assertEqual(bank_txn.amount, 1200)
+        self.assertEqual(bank_txn.related_reference, entry.reference_number)
+
+    def test_record_expense_via_upi_fails_on_insufficient_bank_balance(self):
+        bank = BankService.create_account(
+            account_name="Low Bank",
+            bank_name="SBI",
+            account_number="3344556677",
+            opening_balance=300,
+            by=self.owner_user,
+        )
+        self.client.login(username="view-owner", password="Pass#123")
+        response = self.client.post(
+            self._url(),
+            {
+                "entry_type": "EXPENSE",
+                "category": "ELECTRICITY",
+                "payment_mode": "UPI",
+                "bank_account": str(bank.pk),
+                "amount": "1200",
+                "party_name": "Electricity Board",
+                "description": "August Bill",
+            },
+        )
+        self.assertEqual(response.status_code, 200)  # Re-renders form with error
+        self.assertEqual(BankService.balance_of(bank), 300)
+        self.assertEqual(CashBookEntry.objects.count(), 0)
+
+

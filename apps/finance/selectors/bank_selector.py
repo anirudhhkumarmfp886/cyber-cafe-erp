@@ -1,5 +1,5 @@
 """BankSelector — read-only access to bank accounts and transactions."""
-from django.db.models import Case, F, Sum, When
+from django.db.models import Case, F, Q, Sum, When
 
 from apps.finance.models import BankAccount
 from apps.finance.models.enums import BankTransactionType
@@ -24,7 +24,28 @@ class BankSelector:
 
     @staticmethod
     def transactions(account, limit: int = 150):
-        return account.transactions.order_by("-entry_date", "-created_at")[:limit]
+        return account.transactions.select_related("created_by").order_by("-entry_date", "-created_at")[:limit]
+
+    @staticmethod
+    def filter_transactions(account, filters: dict | None = None):
+        filters = filters or {}
+        qs = account.transactions.select_related("created_by").order_by("-entry_date", "-created_at")
+        if filters.get("from_date"):
+            qs = qs.filter(entry_date__gte=filters["from_date"])
+        if filters.get("to_date"):
+            qs = qs.filter(entry_date__lte=filters["to_date"])
+        if filters.get("category"):
+            qs = qs.filter(category=filters["category"])
+        if filters.get("transaction_type"):
+            qs = qs.filter(transaction_type=filters["transaction_type"])
+        if filters.get("q"):
+            q = filters["q"]
+            qs = qs.filter(
+                Q(reference_number__icontains=q)
+                | Q(party_name__icontains=q)
+                | Q(description__icontains=q)
+            )
+        return qs
 
     @staticmethod
     def total_balance() -> float:

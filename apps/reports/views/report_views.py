@@ -71,6 +71,7 @@ class ProfitLossView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
                 "from_date": from_date,
                 "to_date": to_date,
                 "data": ReportService.profit_loss(from_date, to_date),
+                "periodic": ReportService.periodic_summary(),
             }
         )
         return context

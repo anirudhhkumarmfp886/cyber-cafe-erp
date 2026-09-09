@@ -1,4 +1,4 @@
-"""Tests for the reports app (HTML pages + CSV export)."""
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -108,7 +108,7 @@ class ReportViewTests(TestCase):
             },
             by=self.boss,
         )
-        entry = WorkLogService.create_entry(employee=employee, work_date="2026-08-05", hours_worked=2, by=self.boss)
+        entry = WorkLogService.create_entry(employee=employee, work_date=date.today(), hours_worked=2, by=self.boss)
         WorkLogService.approve_entry(entry, by=self.boss)
         response = self.client.get(reverse("reports:salary_summary"))
         self.assertEqual(response.status_code, 200)

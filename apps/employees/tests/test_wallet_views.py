@@ -59,7 +59,7 @@ class StaffModuleViewTests(TestCase):
         wallet = self._cash_wallet(self.staff)
         response = self.client.post(
             reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
-            {"action": "credit", "amount": "750", "category": "CASH_TOPUP"},
+            {"action": "credit", "amount": "750", "category": "CASH_TOPUP", "source": "Owner cash"},
         )
         self.assertRedirects(
             response,
@@ -71,7 +71,7 @@ class StaffModuleViewTests(TestCase):
         wallet = self._cash_wallet(self.staff)
         response = self.client.post(
             reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
-            {"action": "debit", "amount": "99999", "category": "CASH_WITHDRAWAL"},
+            {"action": "debit", "amount": "99999", "category": "CASH_WITHDRAWAL", "destination": "Owner drawer"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Insufficient wallet balance")
@@ -153,8 +153,16 @@ class PermissionEnforcementTests(TestCase):
 
         call_command("seed_roles")
         self.boss = User.objects.create_superuser(username="boss", password="OwnerPass#123")
-        self.lowly = User.objects.create_user(username="counter", password="StrongPass#123")
-        assign_role_group(self.lowly, Role.STAFF)
+        self.counter_emp = EmployeeService.create_employee(
+            data={
+                "username": "counter",
+                "password": "StrongPass#123",
+                "full_name": "Counter Staffer",
+                "role": Role.STAFF,
+            },
+            by=self.boss,
+        )
+        self.lowly = self.counter_emp.user
         self.client.login(username="counter", password="StrongPass#123")
 
     def test_staff_cannot_open_cashbook_add_form_but_can_view(self):
@@ -182,7 +190,7 @@ class PermissionEnforcementTests(TestCase):
         wallet = WalletService.get_or_create_wallet(staff_emp, WalletType.CASH)
         response = self.client.post(
             reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
-            {"action": "credit", "amount": "100", "category": "CASH_TOPUP"},
+            {"action": "credit", "amount": "100", "category": "CASH_TOPUP", "source": "Owner cash"},
         )
         self.assertEqual(response.status_code, 403)
 
@@ -234,6 +242,9 @@ class PermissionEnforcementTests(TestCase):
         self.assertIn("topup_form", response.context)
         self.assertContains(response, "Owner Top-up")
 
+        # Seed cash in drawer so topup can draw from it
+        CashBookService.owner_deposit(amount=1000, by=self.boss)
+
         # POST action=topup succeeds
         post_resp = self.client.post(
             reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}),
@@ -241,3 +252,28 @@ class PermissionEnforcementTests(TestCase):
         )
         self.assertRedirects(post_resp, reverse("employees:wallet_detail", kwargs={"pk": wallet.pk}))
         self.assertEqual(WalletService.balance_of(wallet), 500)
+
+    def test_staff_cannot_view_other_staff_wallet_detail(self):
+        other_staff = EmployeeService.create_employee(
+            data={
+                "username": "otherstaffer",
+                "password": "StrongPass#123",
+                "full_name": "Other Staffer",
+                "role": Role.STAFF,
+            },
+            by=self.boss,
+        )
+        other_wallet = WalletService.get_or_create_wallet(other_staff, WalletType.CASH)
+        self.client.login(username="counter", password="StrongPass#123")
+        response = self.client.get(reverse("employees:wallet_detail", kwargs={"pk": other_wallet.pk}))
+        self.assertEqual(response.status_code, 403)
+
+    def test_staff_can_view_own_wallet_detail(self):
+        own_wallet = WalletService.get_or_create_wallet(self.counter_emp, WalletType.CASH)
+        self.client.login(username="counter", password="StrongPass#123")
+        response = self.client.get(reverse("employees:wallet_detail", kwargs={"pk": own_wallet.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Counter Staffer")
+
+
+

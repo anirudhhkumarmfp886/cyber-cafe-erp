@@ -14,6 +14,7 @@ from apps.employees.services.wallet_service import WalletService
 from apps.finance.models import BankAccount, BankTransaction, CashBookEntry
 from apps.finance.models.enums import BankTransactionCategory, CashEntryCategory
 from apps.finance.services.bank_service import BankService
+from apps.finance.services.cashbook_service import CashBookService
 from apps.services.services.service_service import ServiceService
 
 User = get_user_model()
@@ -72,6 +73,12 @@ class SplitPaymentTests(TestCase):
 
     def test_full_withdrawal_scenario(self):
         service, custom = self._withdrawal_service()
+        CashBookService.record_income(
+            amount=1000,
+            category=CashEntryCategory.OWNER_DEPOSIT,
+            payment_mode="CASH",
+            by=self.owner,
+        )
         WalletService.top_up(
             employee=self.employee, wallet_type=WalletType.CASH, amount=1000, by=self.owner
         )
@@ -99,9 +106,9 @@ class SplitPaymentTests(TestCase):
         self.assertEqual(
             WalletService.balance_of_employee(self.employee, WalletType.CASH), Decimal("40")
         )
-        # staff ONLINE wallet: the full UPI leg
+        # staff ONLINE wallet: UPI went to shop bank, so staff online wallet is 0
         self.assertEqual(
-            WalletService.balance_of_employee(self.employee, WalletType.ONLINE), Decimal("1300")
+            WalletService.balance_of_employee(self.employee, WalletType.ONLINE), Decimal("0")
         )
 
         deposits = BankTransaction.objects.filter(
@@ -110,20 +117,26 @@ class SplitPaymentTests(TestCase):
         self.assertEqual(deposits.count(), 1)
         self.assertEqual(deposits.first().amount, Decimal("1300"))
 
-        # Cash book: only the cash leg is income here (UPI lives in the bank);
-        # the cash handed out is the matching expense.
+        # Cash book: cash collected for invoice is recorded;
+        # cash handed out comes from staff cash wallet (no duplicate expense)
         self.assertEqual(
             CashBookEntry.objects.get(category=CashEntryCategory.SALES).amount, Decimal("40")
         )
         self.assertFalse(
             CashBookEntry.objects.filter(category=CashEntryCategory.COMMISSION).exists()
         )
-        self.assertEqual(
-            CashBookEntry.objects.get(category=CashEntryCategory.CASH_OUT).amount, Decimal("1000")
+        self.assertFalse(
+            CashBookEntry.objects.filter(category=CashEntryCategory.CASH_OUT).exists()
         )
 
     def test_withdrawal_line_supplies_bank_for_upi_payment(self):
         service, custom = self._withdrawal_service()
+        CashBookService.record_income(
+            amount=2000,
+            category=CashEntryCategory.OWNER_DEPOSIT,
+            payment_mode="CASH",
+            by=self.owner,
+        )
         WalletService.top_up(
             employee=self.employee, wallet_type=WalletType.CASH, amount=2000, by=self.owner
         )
@@ -157,8 +170,9 @@ class SplitPaymentTests(TestCase):
         self.assertEqual(
             WalletService.balance_of_employee(self.employee, WalletType.CASH), Decimal("100")
         )
+        # Online wallet is 0 because UPI went directly into Shop Bank
         self.assertEqual(
-            WalletService.balance_of_employee(self.employee, WalletType.ONLINE), Decimal("200")
+            WalletService.balance_of_employee(self.employee, WalletType.ONLINE), Decimal("0")
         )
         self.assertEqual(
             BankTransaction.objects.get(
@@ -246,3 +260,52 @@ class SplitPaymentTests(TestCase):
         BillingService.soft_delete_invoice(invoice=invoice, by=self.owner)
         deposit.refresh_from_db()
         self.assertFalse(deposit.is_active)
+
+    def test_upi_default_destination_shop(self):
+        """Default UPI payment deposits to Shop Bank and does NOT credit Staff Online Wallet."""
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "UPI", "bank_account": self.account},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.staff,
+        )
+        self.assertEqual(invoice.status, InvoiceStatus.PAID)
+        self.assertEqual(
+            BankService.balance_of(self.account), Decimal("300.00")
+        )
+        # Staff online wallet must NOT receive this credit (money is in shop bank)
+        self.assertEqual(
+            WalletService.balance_of_employee(self.employee, WalletType.ONLINE), Decimal("0.00")
+        )
+
+    def test_upi_staff_destination_credits_wallet(self):
+        """When Personal UPI (Bheed mode) is used, Staff Online Wallet is credited and Shop Bank is untouched."""
+        self.employee.can_collect_personal_upi = True
+        self.employee.save()
+
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "UPI", "payment_destination": "STAFF"},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.staff,
+        )
+        self.assertEqual(invoice.status, InvoiceStatus.PAID)
+        self.assertEqual(
+            WalletService.balance_of_employee(self.employee, WalletType.ONLINE), Decimal("300.00")
+        )
+        # Shop bank should have 0 deposit
+        self.assertEqual(BankService.balance_of(self.account), Decimal("0.00"))
+
+    def test_cash_shop_destination_direct_galla(self):
+        """When cash destination is SHOP (Main Galla), Staff cash wallet is not credited."""
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "payment_destination": "SHOP"},
+            lines=[{"service": self.gaming, "qty": 1}],
+            by=self.staff,
+        )
+        self.assertEqual(invoice.status, InvoiceStatus.PAID)
+        self.assertEqual(
+            WalletService.balance_of_employee(self.employee, WalletType.CASH), Decimal("0.00")
+        )
+        self.assertIsNotNone(invoice.cash_entry)
+        self.assertEqual(invoice.payments.get().payment_destination, "SHOP")
+
+

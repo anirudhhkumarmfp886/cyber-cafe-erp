@@ -16,6 +16,7 @@ class ReferenceService:
     #: Sequence names, kept in one place so prefixes stay consistent.
     WALLET = "WAL"
     CASH_BOOK = "CB"
+    UPI_BOOK = "UB"
     BANK = "BANK"
     INVOICE = "INV"
     CASH_OUT = "COUT"

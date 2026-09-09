@@ -10,6 +10,7 @@ from apps.employees.selectors.wallet_selector import WalletSelector
 from apps.employees.selectors.worklog_selector import WorkLogSelector
 from apps.finance.selectors.bank_selector import BankSelector
 from apps.finance.selectors.cashbook_selector import CashBookSelector
+from apps.finance.selectors.upibook_selector import UPIBookSelector
 from apps.reports.services.report_service import ReportService
 from apps.inventory.selectors.inventory_selector import InventorySelector
 from apps.services.selectors.service_selector import ServiceSelector
@@ -17,8 +18,12 @@ from apps.services.selectors.service_selector import ServiceSelector
 
 @login_required
 def dashboard(request):
-    """Landing dashboard after login. Shows billing + finance at a glance."""
     today = timezone.localdate()
+    drawer_balance = CashBookSelector.drawer_balance()
+    wallet_balance = WalletSelector.total_wallet_balance()
+    upibook_balance = UPIBookSelector.balance()
+    total_shop_money = drawer_balance + wallet_balance + upibook_balance
+
     context = {
         "page_title": "Dashboard",
         "stats": {
@@ -33,9 +38,13 @@ def dashboard(request):
             "today_billing": InvoiceSelector.today_billing_total(),
         },
         "finance": {
-            "wallet_balance": WalletSelector.total_wallet_balance(),
-            "cashbook_balance": CashBookSelector.balance(),
+            "wallet_balance": wallet_balance,
+            "cashbook_balance": drawer_balance,
+            "drawer_balance": drawer_balance,
+            "entire_cashbook_balance": CashBookSelector.balance(),
             "bank_balance": BankSelector.total_balance(),
+            "upibook_balance": upibook_balance,
+            "total_shop_money": total_shop_money,
             "today_income": ReportService.income_total(from_date=today, to_date=today),
         },
         "top_services": InvoiceSelector.top_services(days=30, limit=5),

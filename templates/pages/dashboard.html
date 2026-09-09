@@ -72,26 +72,36 @@
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body d-flex align-items-center gap-3">
-                <span class="stat-icon bg-success-subtle text-success"><i class="bi bi-cash-stack"></i></span>
-                <div>
-                    <h3 class="mb-0 fw-bold">{{ finance.cashbook_balance|inr }}</h3>
-                    <span class="text-muted small">Cash Book Balance</span>
+        <a href="{% url 'finance:cashbook_list' %}" class="text-decoration-none text-reset">
+            <div class="card stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="stat-icon bg-success-subtle text-success"><i class="bi bi-cash-stack"></i></span>
+                        <div>
+                            <h3 class="mb-0 fw-bold">{{ finance.drawer_balance|inr }}</h3>
+                            <span class="text-muted small">Shop Main Drawer (Galla)</span>
+                        </div>
+                    </div>
+                    <div class="pt-2 mt-2 border-top d-flex justify-content-between align-items-center">
+                        <span class="small text-muted fw-semibold" title="Staff Wallets + Shop UPI Pool + Main Galla">Total Shop Money:</span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle fw-bold">{{ finance.total_shop_money|inr }}</span>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-sm-6 col-xl-3">
-        <div class="card stat-card h-100">
-            <div class="card-body d-flex align-items-center gap-3">
-                <span class="stat-icon bg-info-subtle text-info"><i class="bi bi-bank"></i></span>
-                <div>
-                    <h3 class="mb-0 fw-bold">{{ finance.bank_balance|inr }}</h3>
-                    <span class="text-muted small">Bank Total</span>
+        <a href="{% url 'finance:upibook_list' %}" class="text-decoration-none text-reset">
+            <div class="card stat-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="stat-icon bg-info-subtle text-info"><i class="bi bi-qr-code-scan"></i></span>
+                    <div>
+                        <h3 class="mb-0 fw-bold">{{ finance.upibook_balance|inr }}</h3>
+                        <span class="text-muted small">Shop UPI Pool (UPI Book)</span>
+                    </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-sm-6 col-xl-3">
         <div class="card stat-card h-100">

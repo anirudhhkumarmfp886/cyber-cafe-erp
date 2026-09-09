@@ -2,10 +2,19 @@
 {% load erp_tags %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
-    <h5 class="mb-0"><i class="bi bi-cash-coin me-2 text-success"></i>Cash Book
-        {% if staff_label %}<span class="badge text-bg-secondary align-middle">{{ staff_label }}</span>{% endif %}
-    </h5>
+<!-- Top navigation pill switcher -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom">
+    <div class="btn-group" role="group">
+        <a href="{% url 'finance:cashbook_list' %}" class="btn btn-success active">
+            <i class="bi bi-cash-coin me-1"></i>Cash Book (Physical Galla)
+        </a>
+        <a href="{% url 'finance:upibook_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-qr-code-scan me-1"></i>Shop UPI Book
+        </a>
+        <a href="{% url 'finance:bank_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-bank me-1"></i>Bank Ledger
+        </a>
+    </div>
     <div class="d-flex flex-wrap gap-2">
         <span class="badge text-bg-light border fs-6">Today In: <strong class="text-success">{{ today_income|inr }}</strong></span>
         <span class="badge text-bg-light border fs-6">Today Out: <strong class="text-danger">{{ today_expense|inr }}</strong></span>
@@ -13,177 +22,673 @@
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <h6 class="text-muted small text-uppercase mb-1">Balance</h6>
-                <div class="fs-4 fw-bold text-primary">{{ balance|inr }}</div>
-                <div class="small text-muted">In: {{ income_total|inr }} &middot; Out: {{ expense_total|inr }}</div>
-            </div>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <h5 class="mb-0"><i class="bi bi-cash-coin me-2 text-success"></i>Cash Book
+        <span class="badge text-bg-success align-middle ms-1">Physical Cash Drawer</span>
+        {% if staff_label %}<span class="badge text-bg-secondary align-middle ms-1">{{ staff_label }}</span>{% endif %}
+    </h5>
+</div>
+
+<!-- Filter & Scope Bar -->
+<div class="card border-0 shadow-sm mb-4 bg-light">
+    <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-calendar-event text-success fs-5"></i>
+            <span class="fw-semibold small text-muted text-uppercase">Float Position As On:</span>
+            <span class="badge text-bg-success fs-6">{{ as_on|date:"d M Y" }}</span>
         </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <h6 class="text-muted small text-uppercase mb-1">Balance as on</h6>
-                <form method="get" class="d-flex gap-2 align-items-center">
-                    <input type="date" name="as_on" value="{{ as_on|date:'Y-m-d' }}" class="form-control form-control-sm">
-                    {% if staff %}<input type="hidden" name="staff" value="{{ staff.id }}">{% endif %}
-                    <button class="btn btn-sm btn-outline-primary">Go</button>
-                </form>
-                <div class="fs-4 fw-bold text-primary mt-2">{{ as_on_balance|inr }}</div>
-                <div class="small text-muted">As on {{ as_on|date:"d M Y" }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-center">
-                <h6 class="text-muted small text-uppercase mb-1">Scope</h6>
-                {% if can_view_shop %}
-                    <form method="get" class="d-flex gap-2 align-items-center">
-                        <select name="staff" class="form-select form-select-sm" onchange="this.form.submit()">
-                            <option value="">Entire shop (all staff)</option>
-                            {% for s in staff_list %}
-                                <option value="{{ s.id }}" {% if staff and staff.id == s.id %}selected{% endif %}>
-                                    {{ s.full_name }}{% if s.role %} ({{ s.get_role_display }}){% endif %}
-                                </option>
-                            {% endfor %}
-                        </select>
-                        <button class="btn btn-sm btn-outline-secondary d-none">Go</button>
-                    </form>
-                    <div class="small text-muted mt-1">Per-staff cash books: select a staff member.</div>
-                {% else %}
-                    <div class="small text-muted">You are viewing only your own entries. Sales billed by you appear here automatically.</div>
-                {% endif %}
-            </div>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            {% if can_view_shop %}
+            <form method="get" class="d-flex align-items-center gap-2">
+                <span class="small text-muted fw-semibold">Scope:</span>
+                <select name="staff" class="form-select form-select-sm" onchange="this.form.submit()"
+                    style="min-width: 180px;">
+                    <option value="">Entire Shop (Main Galla)</option>
+                    {% for s in staff_list %}
+                    <option value="{{ s.id }}" {% if staff and staff.id == s.id %}selected{% endif %}>
+                        {{ s.full_name }}{% if s.role %} ({{ s.get_role_display }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if as_on %}<input type="hidden" name="as_on" value="{{ as_on|date:'Y-m-d' }}">{% endif %}
+            </form>
+            {% endif %}
+            <form method="get" class="d-flex align-items-center gap-2">
+                <input type="date" name="as_on" value="{{ as_on|date:'Y-m-d' }}" class="form-control form-control-sm"
+                    style="max-width: 160px;">
+                {% if staff %}<input type="hidden" name="staff" value="{{ staff.id }}">{% endif %}
+                <button type="submit" class="btn btn-sm btn-success">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Check Date
+                </button>
+                <a href="{% url 'finance:cashbook_list' %}" class="btn btn-sm btn-outline-secondary">Today</a>
+            </form>
         </div>
     </div>
 </div>
 
-{% if entry_form %}
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-white">
-            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i>Record Entry</h6>
-        </div>
-        <div class="card-body">
-            <form method="post" class="row g-3">
-                {% csrf_token %}
-                {% if entry_form.non_field_errors %}
-                    <div class="col-12">
-                        {% for error in entry_form.non_field_errors %}
-                            <div class="alert alert-danger mb-0">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.entry_type %}</div>
-                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.amount %}</div>
-                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.category %}</div>
-                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.payment_mode %}</div>
-                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.entry_date %}</div>
-                <div class="col-md-2">{% include "includes/field.html" with field=entry_form.party_name %}</div>
-                <div class="col-12">{% include "includes/field.html" with field=entry_form.description %}</div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check2-circle me-1"></i>Save Entry
-                    </button>
-                    {% if not can_add_expense %}<span class="small text-muted ms-2">You can only record income.</span>{% endif %}
-                    {% if not can_add_income %}<span class="small text-muted ms-2">You can only record expenses.</span>{% endif %}
+<div class="row g-3 mb-4">
+    {% if not staff %}
+    <!-- Card 1: Entire Shop Total Operational Cash Float -->
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-primary border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h6 class="text-muted small text-uppercase mb-1">Entire Shop Cash Float</h6>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle small">Total
+                        Cash</span>
                 </div>
-            </form>
+                <div class="fs-4 fw-bold text-primary">{{ entire_shop_cash_float|inr }}</div>
+                <div class="small text-muted">Drawer ({{ drawer_balance|inr }}) + Staff ({{ total_staff_cash_float|inr }})</div>
+            </div>
         </div>
     </div>
+    <!-- Card 2: Shop Cash Drawer (Main Galla) -->
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-success border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h6 class="text-muted small text-uppercase mb-1">Shop Main Drawer</h6>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle small">In
+                        Drawer</span>
+                </div>
+                <div class="fs-4 fw-bold text-success">{{ drawer_balance|inr }}</div>
+                <div class="small text-muted">Physical cash in central shop drawer</div>
+            </div>
+        </div>
+    </div>
+    <!-- Card 3: Active in Staff Cash Wallets -->
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-warning border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h6 class="text-muted small text-uppercase mb-1">In Staff Cash Wallets</h6>
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small">{{ staff_cash_float_breakdown|length }} Staff</span>
+                </div>
+                <div class="fs-4 fw-bold text-warning-emphasis">{{ total_staff_cash_float|inr }}</div>
+                <div class="small text-muted">Active counter float held by staff</div>
+            </div>
+        </div>
+    </div>
+    <!-- Card 4: Today's In / Out -->
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-info border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h6 class="text-muted small text-uppercase mb-1">Today's In / Out</h6>
+                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle small">Net {{ today_net|inr }}</span>
+                </div>
+                <div class="fs-5 fw-bold text-dark">
+                    <span class="text-success">+{{ today_income|inr }}</span> / <span class="text-danger">-{{ today_expense|inr }}</span>
+                </div>
+                <div class="small text-muted">Drawer cash collections vs expenses</div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Single Staff View -->
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-warning border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h6 class="text-muted small text-uppercase mb-0">Counter Cash Float</h6>
+                    {% if staff_cash_wallet %}
+                    <a href="{% url 'employees:wallet_detail' staff_cash_wallet.id %}"
+                        class="badge text-bg-warning text-decoration-none">
+                        Wallet <i class="bi bi-arrow-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="fs-4 fw-bold text-warning-emphasis">{{ staff_cash_float|inr }}</div>
+                <div class="small text-muted">Active cash in staff wallet</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-info border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h6 class="text-muted small text-uppercase mb-0">Counter Online Float</h6>
+                    {% if staff_online_wallet %}
+                    <a href="{% url 'employees:wallet_detail' staff_online_wallet.id %}"
+                        class="badge text-bg-info text-decoration-none">
+                        Wallet <i class="bi bi-arrow-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="fs-4 fw-bold text-info-emphasis">{{ staff_online_float|inr }}</div>
+                <div class="small text-muted">Active UPI in staff wallet</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-success border-4">
+            <div class="card-body">
+                <h6 class="text-muted small text-uppercase mb-1">Central Drawer Sales</h6>
+                <div class="fs-4 fw-bold text-success">{{ income_total|inr }}</div>
+                <div class="small text-muted">Sales billed to central drawer</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-danger border-4">
+            <div class="card-body">
+                <h6 class="text-muted small text-uppercase mb-1">Central Drawer Expenses</h6>
+                <div class="fs-4 fw-bold text-danger">{{ expense_total|inr }}</div>
+                <div class="small text-muted">Direct expenses recorded</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Staff Cash Float Breakdown Panel (when viewing Shop) -->
+{% if staff_cash_float_breakdown %}
+<div class="card shadow-sm border-0 mb-4 border-start border-warning border-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-people-fill text-warning fs-5"></i>
+            <h6 class="mb-0 fw-semibold">Active Staff Cash Float Breakdown (As on {{ as_on|date:"d M Y" }})</h6>
+        </div>
+        <span class="badge text-bg-warning-subtle text-warning-emphasis border border-warning-subtle">Total Floating: {{ total_staff_cash_float|inr }}</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" class="ps-3">Staff Name</th>
+                        <th scope="col">Role</th>
+                        <th scope="col" class="text-end">Cash Float Balance</th>
+                        <th scope="col" class="text-end pe-3">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in staff_cash_float_breakdown %}
+                    <tr>
+                        <td class="ps-3 fw-semibold">
+                            <i class="bi bi-person-circle me-1 text-secondary"></i>
+                            {{ row.employee.full_name }}
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border">{{ row.employee.get_role_display|default:"Staff" }}</span>
+                        </td>
+                        <td class="text-end fw-bold text-success">
+                            {{ row.balance|inr }}
+                        </td>
+                        <td class="text-end pe-3">
+                            <a href="{% url 'employees:wallet_detail' row.wallet.id %}"
+                                class="btn btn-xs btn-outline-primary py-0 px-2 small">
+                                <i class="bi bi-journal-text me-1"></i>View Ledger
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endif %}
 
-{% if owner_cash_form %}
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-white">
-            <h6 class="mb-0 fw-semibold"><i class="bi bi-wallet2 me-2 text-warning"></i>Owner Cash (Withdraw / Deposit)</h6>
-        </div>
-        <div class="card-body">
-            <form method="post" action="{% url 'finance:cashbook_owner_cash' %}" class="row g-3">
-                {% csrf_token %}
-                <div class="col-md-2">{% include "includes/field.html" with field=owner_cash_form.action %}</div>
-                <div class="col-md-2">{% include "includes/field.html" with field=owner_cash_form.amount %}</div>
-                <div class="col-md-2">{% include "includes/field.html" with field=owner_cash_form.payment_mode %}</div>
-                <div class="col-md-4">{% include "includes/field.html" with field=owner_cash_form.description %}</div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-warning w-100">
-                        <i class="bi bi-arrow-left-right me-1"></i>Apply
-                    </button>
-                </div>
-            </form>
-        </div>
+{% if entry_form %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i>Record Cash Entry (Shop Physical
+            Galla)</h6>
+        <span class="badge text-bg-light border text-muted small"><i class="bi bi-cash-stack me-1"></i>Physical Cash
+            Only</span>
     </div>
+    <div class="card-body">
+        <form method="post" class="row g-3" id="cashBookEntryForm">
+            {% csrf_token %}
+            {% if entry_form.non_field_errors %}
+            <div class="col-12">
+                {% for error in entry_form.non_field_errors %}
+                <div class="alert alert-danger mb-0">{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="col-md-2">{% include "includes/field.html" with field=entry_form.entry_type %}</div>
+            <div class="col-md-2">{% include "includes/field.html" with field=entry_form.amount %}</div>
+            <div class="col-md-3">{% include "includes/field.html" with field=entry_form.category %}</div>
+            <div class="col-md-3" id="entryPaidFromWrapper" style="display: none;">
+                {% include "includes/field.html" with field=entry_form.paid_from %}
+            </div>
+            <div class="col-md-2">{% include "includes/field.html" with field=entry_form.entry_date %}</div>
+            <div class="col-md-4" id="entryPartyWrapper">{% include "includes/field.html" with field=entry_form.party_name %}</div>
+            <div class="col-md-8">{% include "includes/field.html" with field=entry_form.description %}</div>
+            <input type="hidden" name="payment_mode" value="CASH">
+            <div class="col-12">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check2-circle me-1"></i>Save Cash Entry
+                </button>
+                {% if not can_add_expense %}<span class="small text-muted ms-2">You can only record income.</span>{% endif %}
+                {% if not can_add_income %}<span class="small text-muted ms-2">You can only record expenses.</span>{% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const typeSelect = document.getElementById('id_entry_type');
+        const catSelect = document.getElementById('id_entry_category');
+        const paidFromWrapper = document.getElementById('entryPaidFromWrapper');
+
+        const incomeCategories = [
+            { value: 'SALES', label: 'Sales' },
+            { value: 'SERVICE_FEE', label: 'Service Fee' },
+            { value: 'COMMISSION', label: 'Commission / E-Sathi' },
+            { value: 'OTHER_INCOME', label: 'Other Income' },
+            { value: 'OWNER_DEPOSIT', label: 'Owner Deposit' },
+            { value: 'FLOAT_IN', label: 'Staff Float In (Float Returned)' }
+        ];
+
+        const expenseCategories = [
+            { value: 'PURCHASE', label: 'Purchases' },
+            { value: 'RENT', label: 'Rent' },
+            { value: 'ELECTRICITY', label: 'Electricity' },
+            { value: 'INTERNET', label: 'Internet / ISP' },
+            { value: 'SALARY', label: 'Salary' },
+            { value: 'MAINTENANCE', label: 'Maintenance' },
+            { value: 'UTILITIES', label: 'Utilities' },
+            { value: 'TAX', label: 'Tax' },
+            { value: 'CASH_OUT', label: 'Cash Out / E-Sathi' },
+            { value: 'FLOAT_OUT', label: 'Staff Float Out (Counter Float)' },
+            { value: 'ADVANCE', label: 'Salary Advance' },
+            { value: 'OWNER_WITHDRAWAL', label: 'Owner Withdrawal' },
+            { value: 'MISC', label: 'Miscellaneous' }
+        ];
+
+        function filterCategories() {
+            if (!typeSelect || !catSelect) return;
+            const currentType = typeSelect.value;
+            const currentVal = catSelect.value;
+            const categories = currentType === 'EXPENSE' ? expenseCategories : incomeCategories;
+
+            catSelect.innerHTML = '';
+            let matchFound = false;
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.value;
+                opt.textContent = cat.label;
+                if (cat.value === currentVal) {
+                    opt.selected = true;
+                    matchFound = true;
+                }
+                catSelect.appendChild(opt);
+            });
+
+            if (!matchFound && categories.length > 0) {
+                catSelect.value = categories[0].value;
+            }
+
+            if (paidFromWrapper) {
+                paidFromWrapper.style.display = currentType === 'EXPENSE' ? 'block' : 'none';
+            }
+        }
+
+        if (typeSelect) {
+            typeSelect.addEventListener('change', filterCategories);
+            filterCategories();
+        }
+    });
+</script>
 {% endif %}
+
+
+{% if owner_cash_form %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-wallet2 me-2 text-warning"></i>Owner Cash & Bank Transfer (Galla
+            Inflow / Outflow)</h6>
+        <span class="badge text-bg-light border text-muted small"><i class="bi bi-arrow-repeat me-1"></i>Direct / Bank
+            Synced</span>
+    </div>
+    <div class="card-body">
+        <form method="post" action="{% url 'finance:cashbook_owner_cash' %}" class="row g-3 align-items-end"
+            id="ownerCashForm">
+            {% csrf_token %}
+            <div class="col-md-2">{% include "includes/field.html" with field=owner_cash_form.action %}</div>
+            <div class="col-md-2">{% include "includes/field.html" with field=owner_cash_form.source %}</div>
+            <div class="col-md-3" id="bankAccountFieldWrapper" style="display: none;">
+                {% include "includes/field.html" with field=owner_cash_form.bank_account %}
+            </div>
+            <div class="col-md-2">{% include "includes/field.html" with field=owner_cash_form.amount %}</div>
+            <div class="col-md-3" id="ownerCashDescWrapper">{% include "includes/field.html" with field=owner_cash_form.description %}</div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-warning w-100">
+                    <i class="bi bi-arrow-left-right me-1"></i>Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const sourceSelect = document.getElementById('id_owner_cash_source');
+        const bankWrapper = document.getElementById('bankAccountFieldWrapper');
+        const descWrapper = document.getElementById('ownerCashDescWrapper');
+
+        function toggleBankField() {
+            if (!sourceSelect || !bankWrapper) return;
+            if (sourceSelect.value === 'BANK') {
+                bankWrapper.style.display = 'block';
+                if (descWrapper) descWrapper.className = 'col-md-3';
+            } else {
+                bankWrapper.style.display = 'none';
+                if (descWrapper) descWrapper.className = 'col-md-4';
+            }
+        }
+        if (sourceSelect) {
+            sourceSelect.addEventListener('change', toggleBankField);
+            toggleBankField();
+        }
+    });
+</script>
+{% endif %}
+
 
 <div class="card shadow-sm border-0">
     <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
         <h6 class="mb-0 fw-semibold">Entries</h6>
         <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
             {% for field in filter_form %}
-                <div class="form-group mb-0">{{ field }}</div>
+            <div class="form-group mb-0">{{ field }}</div>
             {% endfor %}
             <button class="btn btn-sm btn-outline-primary">Filter</button>
             <a href="{% url 'finance:cashbook_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
         </form>
     </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th scope="col">Ref #</th>
-                    <th scope="col">Date</th>
-                    <th scope="col">Type</th>
-                    <th scope="col">Category</th>
-                    <th scope="col">Mode</th>
-                    <th scope="col">Party</th>
-                    <th scope="col" class="text-end">Amount</th>
-                    <th scope="col">Staff</th>
-                    <th scope="col">By</th>
-                    {% if perms.finance.delete_cashbookentry %}<th scope="col"></th>{% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for entry in entries %}
+
+    {% if perms.finance.delete_cashbookentry %}
+    <form method="post" action="{% url 'finance:cashbook_bulk_delete' %}" id="bulkDeleteForm">
+        {% csrf_token %}
+        <div id="bulkActionBar"
+            class="d-none alert alert-danger py-2 px-3 mb-0 rounded-0 border-0 border-bottom d-flex justify-content-between align-items-center">
+            <div class="fw-semibold text-danger small">
+                <i class="bi bi-check2-square me-1"></i>
+                <span id="selectedCountText">0</span> entries selected
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary bg-white py-0 px-2 small"
+                    onclick="clearAllSelections()">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-danger py-0 px-2 small"
+                    onclick="return confirm('Kya aap sach me sabhi selected entries ko delete karna chahte hain?')">
+                    <i class="bi bi-trash3 me-1"></i>Delete Selected
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
                     <tr>
+                        {% if perms.finance.delete_cashbookentry %}
+                        <th scope="col" style="width: 36px;" class="text-center">
+                            <input class="form-check-input" type="checkbox" id="selectAllCheckbox" title="Select All">
+                        </th>
+                        {% endif %}
+                        <th scope="col">Ref #</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Mode</th>
+                        <th scope="col">Party</th>
+                        <th scope="col" class="text-end">Amount</th>
+                        <th scope="col">Staff</th>
+                        <th scope="col">By</th>
+                        {% if perms.finance.delete_cashbookentry %}<th scope="col" class="text-end">Actions</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                    <tr onclick="toggleDesc('cb-desc-{{ entry.id }}')" style="cursor: pointer;"
+                        title="Click to view full description / remarks">
+                        {% if perms.finance.delete_cashbookentry %}
+                        <td class="text-center" onclick="event.stopPropagation()">
+                            <input class="form-check-input entry-checkbox" type="checkbox" name="selected_entries"
+                                value="{{ entry.id }}" onchange="updateBulkBar()">
+                        </td>
+                        {% endif %}
                         <td><span class="badge text-bg-secondary">{{ entry.reference_number }}</span></td>
                         <td class="small text-muted">{{ entry.entry_date|date:"d M Y" }}</td>
                         <td>
-                            <span class="badge text-bg-{% if entry.entry_type == 'INCOME' %}success{% else %}danger{% endif %}">
-                                {{ entry.get_entry_type_display }}
+                            {% if entry.category == 'FLOAT_OUT' %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                <i class="bi bi-arrow-up-right me-1"></i>Float Out
                             </span>
+                            {% elif entry.category == 'FLOAT_IN' %}
+                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">
+                                <i class="bi bi-arrow-down-left me-1"></i>Float Return
+                            </span>
+                            {% elif entry.category == 'OWNER_DEPOSIT' %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                <i class="bi bi-bank me-1"></i>From Bank
+                            </span>
+                            {% elif entry.category == 'OWNER_WITHDRAWAL' %}
+                            <span class="badge bg-dark-subtle text-dark border border-dark-subtle">
+                                <i class="bi bi-bank me-1"></i>To Bank
+                            </span>
+                            {% elif entry.entry_type == 'INCOME' %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                <i class="bi bi-arrow-down-left me-1"></i>Income
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                <i class="bi bi-arrow-up-right me-1"></i>Expense
+                            </span>
+                            {% endif %}
                         </td>
-                        <td>{{ entry.get_category_display }}</td>
+                        <td>
+                            {% if entry.category == 'FLOAT_OUT' %}
+                            <span class="fw-semibold text-warning-emphasis">Counter Float (Wapas Aayega)</span>
+                            {% elif entry.category == 'FLOAT_IN' %}
+                            <span class="fw-semibold text-info-emphasis">Float Returned (Wapas Jama)</span>
+                            {% elif entry.category == 'ADVANCE' %}
+                            <span class="fw-semibold text-danger">Salary Advance (Salary se Katega)</span>
+                            {% else %}
+                            <span class="small">{{ entry.get_category_display }}</span>
+                            {% endif %}
+                        </td>
                         <td><span class="badge text-bg-light border">{{ entry.get_payment_mode_display }}</span></td>
-                        <td>{{ entry.party_name|default:"—" }}</td>
-                        <td class="text-end fw-semibold {% if entry.entry_type == 'INCOME' %}text-success{% else %}text-danger{% endif %}">
+                        <td>
+                            <span class="fw-semibold">{{ entry.party_name|default:"—" }}</span>
+                            {% if entry.description %}
+                            <span class="badge text-bg-info-subtle text-info-emphasis border ms-1 small py-0 px-1"
+                                title="Has note">
+                                <i class="bi bi-chat-left-text me-1"></i>Note
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td
+                            class="text-end fw-semibold {% if entry.entry_type == 'INCOME' %}text-success{% else %}text-danger{% endif %}">
                             {% if entry.entry_type == 'INCOME' %}+{% else %}−{% endif %}{{ entry.amount|inr }}
                         </td>
                         <td class="small">{{ entry.staff.get_full_name|default:"—" }}</td>
                         <td class="small">{{ entry.created_by.get_full_name|default:"—" }}</td>
                         {% if perms.finance.delete_cashbookentry %}
-                            <td class="text-end">
-                                <form method="post" action="{% url 'finance:cashbook_delete' entry.pk %}" onsubmit="return confirm('Delete entry {{ entry.reference_number }}?')">
-                                    {% csrf_token %}
-                                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                                </form>
-                            </td>
+                        <td class="text-end" onclick="event.stopPropagation()">
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-light border dropdown-toggle py-0 px-2 text-muted"
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow border py-1" style="font-size: 13px;">
+                                    <li>
+                                        <a class="dropdown-item py-1" href="javascript:void(0)"
+                                            onclick="toggleDesc('cb-desc-{{ entry.id }}')">
+                                            <i class="bi bi-chat-left-text text-primary me-2"></i>View Note / Details
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <hr class="dropdown-divider my-1">
+                                    </li>
+                                    <li>
+                                        <form method="post" action="{% url 'finance:cashbook_delete' entry.pk %}"
+                                            onsubmit="return confirm('Kya aap sach me entry {{ entry.reference_number }} ko delete karna chahte hain?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="dropdown-item text-danger py-1">
+                                                <i class="bi bi-trash3 me-2"></i>Delete Entry
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
                         {% endif %}
                     </tr>
-                {% empty %}
+                    <tr id="cb-desc-{{ entry.id }}" class="d-none">
+                        <td colspan="11" class="p-3 bg-light border-start border-success border-4 shadow-inner">
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="bi bi-chat-left-quote-fill text-success fs-5 mt-1"></i>
+                                <div class="w-100">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="small fw-bold text-uppercase text-success">CashBook Description /
+                                            Remark:</span>
+                                        <span class="badge text-bg-light border text-muted small font-monospace">{{ entry.reference_number }}</span>
+                                    </div>
+                                    <div class="p-2 mt-1 rounded bg-white border text-dark fw-medium fs-6">
+                                        {% if entry.description %}
+                                        {{ entry.description }}
+                                        {% else %}
+                                        <em class="text-muted small">Koi description enter nahi kiya gaya tha.</em>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-5">
+                        <td colspan="11" class="text-center text-muted py-5">
                             <i class="bi bi-cash-coin fs-2 d-block mb-2"></i>
                             No entries found.
                         </td>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if perms.finance.delete_cashbookentry %}
+    </form>
+    {% endif %}
 </div>
 
 {% include "includes/pagination.html" %}
+
+<script>
+    function toggleDesc(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.toggle('d-none');
+        }
+    }
+
+    function updateBulkBar() {
+        const checkboxes = document.querySelectorAll('.entry-checkbox:checked');
+        const count = checkboxes.length;
+        const bar = document.getElementById('bulkActionBar');
+        const text = document.getElementById('selectedCountText');
+        const selectAll = document.getElementById('selectAllCheckbox');
+
+        if (text) text.textContent = count;
+        if (bar) {
+            if (count > 0) {
+                bar.classList.remove('d-none');
+            } else {
+                bar.classList.add('d-none');
+            }
+        }
+        const allBoxes = document.querySelectorAll('.entry-checkbox');
+        if (selectAll && allBoxes.length > 0) {
+            selectAll.checked = (count === allBoxes.length);
+        }
+    }
+
+    function clearAllSelections() {
+        document.querySelectorAll('.entry-checkbox').forEach(cb => cb.checked = false);
+        const selectAll = document.getElementById('selectAllCheckbox');
+        if (selectAll) selectAll.checked = false;
+        updateBulkBar();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const selectAll = document.getElementById('selectAllCheckbox');
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                document.querySelectorAll('.entry-checkbox').forEach(cb => cb.checked = selectAll.checked);
+                updateBulkBar();
+            });
+        }
+
+        // Filter Bar Category Synchronization
+        const filterTypeSelect = document.getElementById('id_filter_entry_type');
+        const filterCatSelect = document.getElementById('id_filter_category');
+
+        const incomeCategories = [
+            { value: 'SALES', label: 'Sales' },
+            { value: 'SERVICE_FEE', label: 'Service Fee' },
+            { value: 'COMMISSION', label: 'Commission / E-Sathi' },
+            { value: 'OTHER_INCOME', label: 'Other Income' },
+            { value: 'OWNER_DEPOSIT', label: 'Owner Deposit' }
+        ];
+
+        const expenseCategories = [
+            { value: 'PURCHASE', label: 'Purchases' },
+            { value: 'RENT', label: 'Rent' },
+            { value: 'ELECTRICITY', label: 'Electricity' },
+            { value: 'INTERNET', label: 'Internet / ISP' },
+            { value: 'SALARY', label: 'Salary' },
+            { value: 'MAINTENANCE', label: 'Maintenance' },
+            { value: 'UTILITIES', label: 'Utilities' },
+            { value: 'TAX', label: 'Tax' },
+            { value: 'CASH_OUT', label: 'Cash Out / E-Sathi' },
+            { value: 'ADVANCE', label: 'Advance / Staff Float' },
+            { value: 'OWNER_WITHDRAWAL', label: 'Owner Withdrawal' },
+            { value: 'MISC', label: 'Miscellaneous' }
+        ];
+
+        function filterSearchCategories() {
+            if (!filterTypeSelect || !filterCatSelect) return;
+            const currentType = filterTypeSelect.value;
+            const currentVal = filterCatSelect.value;
+
+            let categories = [];
+            if (currentType === 'INCOME') {
+                categories = [{ value: '', label: 'All income categories' }, ...incomeCategories];
+            } else if (currentType === 'EXPENSE') {
+                categories = [{ value: '', label: 'All expense categories' }, ...expenseCategories];
+            } else {
+                categories = [
+                    { value: '', label: 'All categories' },
+                    ...incomeCategories,
+                    ...expenseCategories
+                ];
+            }
+
+            filterCatSelect.innerHTML = '';
+            let matchFound = false;
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.value;
+                opt.textContent = cat.label;
+                if (cat.value === currentVal) {
+                    opt.selected = true;
+                    matchFound = true;
+                }
+                filterCatSelect.appendChild(opt);
+            });
+
+            if (!matchFound) {
+                filterCatSelect.value = '';
+            }
+        }
+
+        if (filterTypeSelect) {
+            filterTypeSelect.addEventListener('change', filterSearchCategories);
+            filterSearchCategories();
+        }
+    });
+</script>
 {% endblock %}

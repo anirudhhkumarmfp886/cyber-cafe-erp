@@ -102,3 +102,63 @@ def user_can_manage_topup(user) -> bool:
     return user.has_perm("finance.withdraw_shop_cash")
 
 
+def user_can_view_all_profiles(user) -> bool:
+    """Check if the user is authorized to view all employees' full private profiles & ledgers.
+
+    Authorized if:
+    - User is superuser
+    - Employee is Owner, Manager, or Accountant
+    - User has change_employee or delete_employee permissions
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    employee = getattr(user, "employee", None)
+    if employee and employee.role in (Role.OWNER, Role.MANAGER, Role.ACCOUNTANT):
+        return True
+    return user.has_perm("employees.change_employee") or user.has_perm("employees.delete_employee")
+
+
+def user_can_manage_permissions(user) -> bool:
+    """Check if the user is authorized to grant, revoke, or change staff permissions.
+
+    Authorized if:
+    - User is superuser
+    - Employee has role == Role.OWNER
+    - Employee has can_manage_permissions == True (explicitly granted by Owner)
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    employee = getattr(user, "employee", None)
+    if employee:
+        if employee.role == Role.OWNER:
+            return True
+        if getattr(employee, "can_manage_permissions", False):
+            return True
+    return False
+
+
+def user_can_manage_customer_credit(user) -> bool:
+    """Check if the user is authorized to set or change customer credit limits.
+
+    Authorized if:
+    - User is superuser / Owner
+    - Employee has can_manage_customer_credit == True
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    employee = getattr(user, "employee", None)
+    if employee:
+        if employee.role == Role.OWNER:
+            return True
+        if getattr(employee, "can_manage_customer_credit", False):
+            return True
+    return False
+
+
+

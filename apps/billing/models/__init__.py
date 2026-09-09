@@ -7,6 +7,7 @@ from apps.billing.models.invoice import (
     InvoicePayment,
     InvoicePaymentMode,
     InvoiceStatus,
+    PaymentDestination,
 )
 
 __all__ = [
@@ -18,4 +19,6 @@ __all__ = [
     "InvoicePayment",
     "InvoicePaymentMode",
     "InvoiceStatus",
+    "PaymentDestination",
 ]
+

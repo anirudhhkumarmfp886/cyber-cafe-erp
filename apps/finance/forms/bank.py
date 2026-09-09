@@ -33,6 +33,17 @@ class BankAccountForm(forms.ModelForm):
         self.fields["opening_balance"].required = False
         self.fields["is_default"].label = "Set as default shop bank account (for UPI QR & general billing)"
 
+    def clean_account_number(self):
+        account_number = (self.cleaned_data.get("account_number") or "").strip()
+        if not account_number:
+            return account_number
+        qs = BankAccount.all_objects.filter(account_number=account_number)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError("Bank account with this Account number already exists.")
+        return account_number
+
 
 class BankDepositForm(forms.Form):
     amount = forms.DecimalField(

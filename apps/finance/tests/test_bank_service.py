@@ -87,3 +87,24 @@ class BankServiceTests(TestCase):
         count = BankTransaction.objects.filter(account=self.account_a).count()
         self.assertEqual(count, 2)
         self.assertEqual(BankService.balance_of(self.account_a), 1300)
+
+    def test_bank_account_form_duplicate_number_rejected_including_soft_deleted(self):
+        from apps.finance.forms.bank import BankAccountForm
+        # Existing active account duplicate
+        form_data = {
+            "account_name": "Duplicate Test",
+            "bank_name": "HDFC",
+            "account_number": "1234567890",
+            "account_type": "CURRENT",
+        }
+        form = BankAccountForm(data=form_data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("account_number", form.errors)
+        self.assertIn("already exists", form.errors["account_number"][0])
+
+        # Soft delete account_a and verify it still prevents duplicate insertion
+        self.account_a.soft_delete(by=self.user)
+        form_soft = BankAccountForm(data=form_data)
+        self.assertFalse(form_soft.is_valid())
+        self.assertIn("account_number", form_soft.errors)
+        self.assertIn("already exists", form_soft.errors["account_number"][0])

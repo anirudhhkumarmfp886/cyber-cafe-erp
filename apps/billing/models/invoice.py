@@ -19,6 +19,7 @@ migration that imported ``CashOut`` records); the CashOut entry point itself
 was retired in Sprint 4.5.
 """
 from datetime import date
+from decimal import Decimal
 
 from django.db import models
 
@@ -43,6 +44,12 @@ class InvoiceStatus(models.TextChoices):
     UNPAID = "UNPAID", "Unpaid"
 
 
+class PaymentDestination(models.TextChoices):
+    AUTO = "AUTO", "Smart Auto (Cash to Staff, UPI to Shop QR)"
+    STAFF = "STAFF", "Staff Wallet (Both Cash & UPI to Staff)"
+    SHOP = "SHOP", "Shop Account (Cash to Main Galla, UPI to Shop QR)"
+
+
 class Invoice(BaseModel):
     invoice_number = models.CharField(max_length=30, unique=True, editable=False, db_index=True)
     customer = models.ForeignKey(
@@ -64,6 +71,13 @@ class Invoice(BaseModel):
         choices=InvoicePaymentMode.choices,
         default=InvoicePaymentMode.CASH,
         db_index=True,
+    )
+    payment_destination = models.CharField(
+        max_length=10,
+        choices=PaymentDestination.choices,
+        default=PaymentDestination.AUTO,
+        db_index=True,
+        help_text="Whether payment was received into shop accounts (Shop QR/Galla) or staff wallet (Staff UPI/Hand).",
     )
     status = models.CharField(
         max_length=10,
@@ -123,17 +137,28 @@ class Invoice(BaseModel):
 
     @property
     def income_amount(self):
-        """Shop income for this invoice = sum of line income amounts.
+        """Shop income for this invoice = sum of line income amounts minus discount.
 
-        Difference between ``total`` and ``income`` is pass-through money
-        moving on the customer's behalf, never shop income.
+        Difference between ``total`` and ``pass_through_amount`` is the net
+        shop income.
         """
-        total = self.lines.aggregate(income=models.Sum("income_amount"))["income"]
-        return total or 0
+        line_income = self.lines.aggregate(income=models.Sum("income_amount"))["income"] or Decimal("0")
+        return max(Decimal("0"), line_income - (self.discount or Decimal("0")))
 
     @property
     def pass_through_amount(self):
-        return self.total - self.income_amount
+        """Total pass-through money moving on customer's behalf across all lines."""
+        return sum(line.pass_through_amount for line in self.lines.all())
+
+    @property
+    def cash_pass_through_amount(self):
+        """Total physical cash handed to customer across lines (e.g. cash withdrawals)."""
+        return sum(line.pass_through_amount for line in self.lines.all() if line.is_cash_passthrough)
+
+    @property
+    def online_pass_through_amount(self):
+        """Total online fee / transfer paid on customer's behalf across lines."""
+        return sum(line.pass_through_amount for line in self.lines.all() if line.is_online_passthrough)
 
 
 class InvoiceLine(BaseModel):
@@ -196,6 +221,25 @@ class InvoiceLine(BaseModel):
     def pass_through_amount(self):
         """Money moving on the customer's behalf for this line."""
         return self.amount - self.income_amount
+
+    @property
+    def passthrough_type(self) -> str:
+        from apps.common.services.formula import ServicePassThroughType
+        if self.service and self.service.passthrough_type:
+            return self.service.passthrough_type
+        if self.withdrawal_summary:
+            return ServicePassThroughType.CASH
+        return ServicePassThroughType.NONE
+
+    @property
+    def is_cash_passthrough(self) -> bool:
+        from apps.common.services.formula import ServicePassThroughType
+        return self.passthrough_type == ServicePassThroughType.CASH
+
+    @property
+    def is_online_passthrough(self) -> bool:
+        from apps.common.services.formula import ServicePassThroughType
+        return self.passthrough_type == ServicePassThroughType.ONLINE
 
     @property
     def withdrawal_summary(self) -> str | None:
@@ -283,6 +327,12 @@ class InvoicePayment(BaseModel):
     )
     amount = money_field()
     payment_mode = models.CharField(max_length=20, choices=InvoicePaymentMode.choices)
+    payment_destination = models.CharField(
+        max_length=10,
+        choices=PaymentDestination.choices,
+        default=PaymentDestination.AUTO,
+        help_text="Whether payment was received into shop accounts (Shop QR/Galla) or staff wallet (Staff UPI/Hand).",
+    )
     payment_date = models.DateField(default=date.today, db_index=True)
     cash_entry = models.ForeignKey(
         CashBookEntry,

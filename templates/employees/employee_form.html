@@ -55,13 +55,18 @@
                         <div class="col-md-4">{% include "includes/field.html" with field=form.pincode %}</div>
                     </div>
 
-                    <h6 class="text-uppercase small text-muted fw-semibold mb-3">Permissions &amp; Access Controls</h6>
+                    <h6 class="text-uppercase small text-muted fw-semibold mb-3 d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-shield-lock me-1 text-primary"></i>Permissions &amp; Access Controls</span>
+                        {% if not can_manage_permissions %}
+                            <span class="badge text-bg-warning text-dark"><i class="bi bi-lock-fill me-1"></i>Locked (Owner Permission Required)</span>
+                        {% endif %}
+                    </h6>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <div class="card border bg-light-subtle shadow-none h-100">
                                 <div class="card-body py-3">
                                     <div class="form-check form-switch mb-0">
-                                        <input class="form-check-input" type="checkbox" role="switch" name="can_create_bills" id="id_can_create_bills" {% if form.can_create_bills.value %}checked{% endif %}>
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_create_bills" id="id_can_create_bills" {% if form.can_create_bills.value %}checked{% endif %} {% if not can_manage_permissions %}disabled{% endif %}>
                                         <label class="form-check-label fw-semibold ms-2" for="id_can_create_bills">
                                             <i class="bi bi-receipt text-primary me-1"></i> Billing Access (Bill Banane Ki Permission)
                                         </label>
@@ -76,12 +81,87 @@
                             <div class="card border bg-light-subtle shadow-none h-100">
                                 <div class="card-body py-3">
                                     <div class="form-check form-switch mb-0">
-                                        <input class="form-check-input" type="checkbox" role="switch" name="can_manage_topup" id="id_can_manage_topup" {% if form.can_manage_topup.value %}checked{% endif %}>
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_manage_topup" id="id_can_manage_topup" {% if form.can_manage_topup.value %}checked{% endif %} {% if not can_manage_permissions %}disabled{% endif %}>
                                         <label class="form-check-label fw-semibold ms-2" for="id_can_manage_topup">
                                             <i class="bi bi-wallet2 text-warning me-1"></i> Top-Up &amp; Owner Cash Access
                                         </label>
                                         <div class="small text-muted ms-2 mt-1">
                                             Grant permission to perform wallet top-ups and owner cash deposit/withdrawals.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border bg-light-subtle shadow-none h-100">
+                                <div class="card-body py-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_record_expenses" id="id_can_record_expenses" {% if form.can_record_expenses.value %}checked{% endif %} {% if not can_manage_permissions %}disabled{% endif %}>
+                                        <label class="form-check-label fw-semibold ms-2" for="id_can_record_expenses">
+                                            <i class="bi bi-cash-stack text-danger me-1"></i> Expense Recording (Kharcha Entry Permission)
+                                        </label>
+                                        <div class="small text-muted ms-2 mt-1">
+                                            Allow staff to record shop maintenance / operating expenses from counter float or bank.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border bg-light-subtle shadow-none h-100">
+                                <div class="card-body py-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_collect_personal_upi" id="id_can_collect_personal_upi" {% if form.can_collect_personal_upi.value %}checked{% endif %} {% if not can_manage_permissions %}disabled{% endif %}>
+                                        <label class="form-check-label fw-semibold ms-2" for="id_can_collect_personal_upi">
+                                            <i class="bi bi-qr-code-scan text-success me-1"></i> Personal UPI Collection (Bheed Mode)
+                                        </label>
+                                        <div class="small text-muted ms-2 mt-1">
+                                            Allow staff to collect payments into their personal Staff UPI/Wallet during rush hours.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border bg-light-subtle shadow-none h-100">
+                                <div class="card-body py-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_view_shop_finance" id="id_can_view_shop_finance" {% if form.can_view_shop_finance.value %}checked{% endif %} {% if not can_manage_permissions %}disabled{% endif %}>
+                                        <label class="form-check-label fw-semibold ms-2" for="id_can_view_shop_finance">
+                                            <i class="bi bi-safe2 text-info me-1"></i> Entire Shop Main Galla &amp; UPI Access
+                                        </label>
+                                        <div class="small text-muted ms-2 mt-1">
+                                            Allow staff to view entire shop cashbook (main galla), full staff float breakdowns, and shop UPI books.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border bg-light-subtle shadow-none h-100">
+                                <div class="card-body py-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_manage_permissions" id="id_can_manage_permissions" {% if form.can_manage_permissions.value %}checked{% endif %} {% if not can_manage_permissions %}disabled{% endif %}>
+                                        <label class="form-check-label fw-semibold ms-2" for="id_can_manage_permissions">
+                                            <i class="bi bi-person-gear text-dark me-1"></i> Permission Management Access
+                                        </label>
+                                        <div class="small text-muted ms-2 mt-1">
+                                            Allow this employee to assign and modify permissions for other staff (Delegated Owner Rights).
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border bg-light-subtle shadow-none h-100">
+                                <div class="card-body py-3">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" name="can_manage_customer_credit" id="id_can_manage_customer_credit" {% if form.can_manage_customer_credit.value %}checked{% endif %} {% if not can_manage_permissions %}disabled{% endif %}>
+                                        <label class="form-check-label fw-semibold ms-2" for="id_can_manage_customer_credit">
+                                            <i class="bi bi-credit-card-2-front text-danger me-1"></i> Customer Credit Limit Access
+                                        </label>
+                                        <div class="small text-muted ms-2 mt-1">
+                                            Allow this employee to set and modify customer Credit on Account limits.
                                         </div>
                                     </div>
                                 </div>

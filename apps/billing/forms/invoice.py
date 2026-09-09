@@ -1,7 +1,12 @@
 """Forms for billing: invoices (header + lines) and settlements."""
 from django import forms
 
-from apps.billing.models import Invoice, InvoiceLine, InvoicePaymentMode
+from apps.billing.models import (
+    Invoice,
+    InvoiceLine,
+    InvoicePaymentMode,
+    PaymentDestination,
+)
 from apps.customers.models import Customer
 from apps.finance.models import BankAccount
 from apps.services.models import Service
@@ -14,10 +19,23 @@ class InvoiceForm(forms.ModelForm):
         label="Customer name (new)",
         widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Name if not listed above"}),
     )
+    customer_phone = forms.CharField(
+        required=False,
+        max_length=15,
+        label="Customer mobile (optional / for credit)",
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "10-digit phone number"}),
+    )
     create_customer = forms.BooleanField(
         required=False,
         label="Save as a new customer",
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
+    payment_destination = forms.ChoiceField(
+        choices=PaymentDestination.choices,
+        initial=PaymentDestination.AUTO,
+        required=False,
+        label="Payment Received In",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
     bank_account = forms.ModelChoiceField(
         queryset=BankAccount.objects.none(),
@@ -29,15 +47,27 @@ class InvoiceForm(forms.ModelForm):
 
     class Meta:
         model = Invoice
-        fields = ["customer", "customer_name", "create_customer", "payment_mode", "bank_account", "discount", "notes"]
+        fields = [
+            "customer",
+            "customer_name",
+            "customer_phone",
+            "create_customer",
+            "payment_mode",
+            "payment_destination",
+            "bank_account",
+            "discount",
+            "notes",
+        ]
         widgets = {
             "customer": forms.Select(attrs={"class": "form-select"}),
             "payment_mode": forms.Select(attrs={"class": "form-select"}),
+            "payment_destination": forms.Select(attrs={"class": "form-select"}),
             "discount": forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0", "placeholder": "0.00"}),
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 1, "placeholder": "Optional bill notes"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
         super().__init__(*args, **kwargs)
         self.fields["customer"].queryset = Customer.objects.order_by("full_name")
         self.fields["customer"].required = False
@@ -46,8 +76,19 @@ class InvoiceForm(forms.ModelForm):
         if default_acc:
             self.fields["bank_account"].initial = default_acc.pk
 
+        # Check if user has permission for flexible payment selection (personal UPI)
+        can_choose = True
+        if user and hasattr(user, "employee") and user.employee:
+            can_choose = user.employee.can_collect_personal_upi or user.employee.is_supervisor
+        if not can_choose:
+            # When disabled, keep default AUTO destination hidden to avoid confusing staff
+            self.fields["payment_destination"].widget = forms.HiddenInput()
+            self.fields["payment_destination"].initial = PaymentDestination.AUTO
+
     def clean(self):
         cleaned = super().clean()
+        if not cleaned.get("payment_destination"):
+            cleaned["payment_destination"] = PaymentDestination.AUTO
         customer = cleaned.get("customer")
         customer_name = (cleaned.get("customer_name") or "").strip()
         create_customer = cleaned.get("create_customer")
@@ -101,7 +142,7 @@ InvoiceLineFormSet = forms.inlineformset_factory(
 
 class PaymentSplitForm(forms.Form):
     mode = forms.ChoiceField(
-        choices=[(mode.value, mode.label) for mode in InvoicePaymentMode if mode.value != "CREDIT"],
+        choices=[(mode.value, mode.label) for mode in InvoicePaymentMode],
         initial=InvoicePaymentMode.UPI,
         widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
     )
@@ -114,10 +155,16 @@ class PaymentSplitForm(forms.Form):
             attrs={"class": "form-control form-control-sm", "step": "0.01", "min": "0", "placeholder": "0.00"}
         ),
     )
+    payment_destination = forms.ChoiceField(
+        choices=PaymentDestination.choices,
+        initial=PaymentDestination.AUTO,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
+    )
     bank_account = forms.ModelChoiceField(
         queryset=BankAccount.objects.order_by("account_name"),
         required=False,
-        empty_label="Shop bank account (UPI / bank)",
+        empty_label="— Auto Default Shop Bank —",
         widget=forms.Select(attrs={"class": "form-select form-select-sm"}),
     )
 
@@ -135,8 +182,29 @@ class SettleInvoiceForm(forms.Form):
         choices=[(mode, mode.label) for mode in InvoicePaymentMode if mode.value != "CREDIT"],
         widget=forms.Select(attrs={"class": "form-select"}),
     )
+    payment_destination = forms.ChoiceField(
+        choices=PaymentDestination.choices,
+        initial=PaymentDestination.AUTO,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    bank_account = forms.ModelChoiceField(
+        queryset=BankAccount.objects.none(),
+        required=False,
+        label="Shop Bank (for UPI / Bank)",
+        empty_label="— Auto Default Shop Bank —",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
     notes = forms.CharField(
         required=False,
         max_length=200,
         widget=forms.TextInput(attrs={"class": "form-control"}),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["bank_account"].queryset = BankAccount.objects.filter(is_active=True).order_by("account_name")
+        default_acc = BankAccount.objects.filter(is_active=True, is_default=True).first() or BankAccount.objects.filter(is_active=True).first()
+        if default_acc:
+            self.fields["bank_account"].initial = default_acc.pk
+

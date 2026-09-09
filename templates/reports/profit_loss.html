@@ -2,30 +2,160 @@
 {% load erp_tags %}
 
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
-    <h5 class="mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Profit &amp; Loss</h5>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom">
+    <div>
+        <h5 class="mb-1"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Profit &amp; Loss Report</h5>
+        <div class="text-muted small">Real-time Income, Expenses, Staff Outflows &amp; Net Business Profit</div>
+    </div>
     <div class="d-flex gap-2 align-items-center">
         <a href="{% url 'reports:profit_loss' %}?export=csv&{{ request.GET.urlencode }}" class="btn btn-sm btn-outline-success">
-            <i class="bi bi-download me-1"></i>CSV
+            <i class="bi bi-download me-1"></i>Export CSV
         </a>
         <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
             {% for field in form %}
                 <div class="form-group mb-0">{{ field }}</div>
             {% endfor %}
-            <button class="btn btn-sm btn-outline-primary">Run</button>
+            <button class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>Filter</button>
             <a href="{% url 'reports:profit_loss' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
         </form>
     </div>
 </div>
 
-<div class="row g-4">
+<!-- 1. Periodic Summary Cards: Today / This Month / This Year -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-primary border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small text-uppercase fw-semibold">Today (Aaj Ka Hissab)</span>
+                    <span class="badge bg-primary-subtle text-primary">Live Today</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-baseline mt-2">
+                    <span class="small text-muted">Income:</span>
+                    <span class="fw-semibold text-success">{{ periodic.today.income|inr }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-baseline">
+                    <span class="small text-muted">Expenses:</span>
+                    <span class="fw-semibold text-danger">{{ periodic.today.expense|inr }}</span>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between align-items-baseline">
+                    <span class="fw-bold">Net Profit:</span>
+                    <span class="fs-5 fw-bold {% if periodic.today.net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ periodic.today.net|inr }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-success border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small text-uppercase fw-semibold">This Month (Is Mahine)</span>
+                    <span class="badge bg-success-subtle text-success">MTD</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-baseline mt-2">
+                    <span class="small text-muted">Income:</span>
+                    <span class="fw-semibold text-success">{{ periodic.this_month.income|inr }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-baseline">
+                    <span class="small text-muted">Expenses:</span>
+                    <span class="fw-semibold text-danger">{{ periodic.this_month.expense|inr }}</span>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between align-items-baseline">
+                    <span class="fw-bold">Net Profit:</span>
+                    <span class="fs-5 fw-bold {% if periodic.this_month.net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ periodic.this_month.net|inr }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 bg-light-subtle border-start border-info border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small text-uppercase fw-semibold">This Year (Is Saal)</span>
+                    <span class="badge bg-info-subtle text-info-emphasis">YTD</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-baseline mt-2">
+                    <span class="small text-muted">Income:</span>
+                    <span class="fw-semibold text-success">{{ periodic.this_year.income|inr }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-baseline">
+                    <span class="small text-muted">Expenses:</span>
+                    <span class="fw-semibold text-danger">{{ periodic.this_year.expense|inr }}</span>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between align-items-baseline">
+                    <span class="fw-bold">Net Profit:</span>
+                    <span class="fs-5 fw-bold {% if periodic.this_year.net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ periodic.this_year.net|inr }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. Selected Date Range P&L Overview -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold">
+            <i class="bi bi-calendar-check me-2 text-primary"></i>Period Statement: {{ from_date|date:"d M Y" }} to {{ to_date|date:"d M Y" }}
+        </h6>
+        <span class="badge text-bg-light border text-muted">Filtered Range</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="p-3 rounded bg-success-subtle border border-success-subtle text-center">
+                    <small class="text-muted text-uppercase d-block mb-1">Realized Income (Cash In)</small>
+                    <h4 class="fw-bold text-success mb-0">{{ data.income_total|inr }}</h4>
+                    <span class="badge text-bg-light border text-dark small mt-1">Actual Cash/UPI Collected</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 rounded bg-danger-subtle border border-danger-subtle text-center">
+                    <small class="text-muted text-uppercase d-block mb-1">Operating Expenses</small>
+                    <h4 class="fw-bold text-danger mb-0">{{ data.expense_total|inr }}</h4>
+                    <span class="badge text-bg-light border text-dark small mt-1">Dukan Kharcha</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 rounded bg-light border text-center">
+                    <small class="text-muted text-uppercase d-block mb-1">Net Realized Profit (Jeb Ka Munafa)</small>
+                    <h4 class="fw-bold {% if data.net >= 0 %}text-success{% else %}text-danger{% endif %} mb-0">{{ data.net|inr }}</h4>
+                    <span class="badge text-bg-{% if data.net >= 0 %}success{% else %}danger{% endif %}-subtle text-{% if data.net >= 0 %}success{% else %}danger{% endif %}-emphasis border small mt-1">Net Cash Profit</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3 rounded bg-light border text-center">
+                    <small class="text-muted text-uppercase d-block mb-1">Pending Due Profit (Udhaar)</small>
+                    <h4 class="fw-bold text-warning-emphasis mb-0">{{ data.due_income|inr }}</h4>
+                    <span class="badge text-bg-warning-subtle text-warning-emphasis border small mt-1">Billed Margin: {{ data.net_billed|inr }}</span>
+                </div>
+            </div>
+        </div>
+        {% if data.due_income > 0 %}
+            <div class="alert alert-warning d-flex align-items-center gap-2 mb-0 mt-3 py-2 small">
+                <i class="bi bi-info-circle-fill fs-5"></i>
+                <div>
+                    <strong>Udhaar Note:</strong> Is period me <strong>{{ data.due_income|inr }}</strong> ka margin customers ke pending bills (Udhaar) me ruka hua hai. Isliye Realized Profit <strong>{{ data.net|inr }}</strong> hai. Jab customers bacha hua due clear karenge, tab ye net cash profit me judega (Total Billed Profit: <strong>{{ data.net_billed|inr }}</strong>).
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Category-wise Income Breakdown -->
     <div class="col-lg-6">
         <div class="card shadow-sm border-0 h-100">
-            <div class="card-header bg-white">
-                <h6 class="mb-0 fw-semibold">Income — {{ from_date|date:"d M Y" }} to {{ to_date|date:"d M Y" }}</h6>
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-arrow-down-left text-success me-2"></i>Income by Category</h6>
+                <span class="badge bg-success-subtle text-success">{{ data.income|length }} stream{{ data.income|length|pluralize }}</span>
             </div>
             <div class="card-body p-0">
-                <table class="table table-sm align-middle mb-0">
+                <table class="table table-sm table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr><th scope="col">Category</th><th scope="col" class="text-end">Amount</th></tr>
                     </thead>
@@ -42,20 +172,23 @@
                     <tfoot class="table-light">
                         <tr class="fw-bold">
                             <td>Total Income</td>
-                            <td class="text-end">{{ data.income_total|inr }}</td>
+                            <td class="text-end text-success">{{ data.income_total|inr }}</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
         </div>
     </div>
+
+    <!-- Category-wise Expense Breakdown -->
     <div class="col-lg-6">
         <div class="card shadow-sm border-0 h-100">
-            <div class="card-header bg-white">
-                <h6 class="mb-0 fw-semibold">Expenses</h6>
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-arrow-up-right text-danger me-2"></i>Expenses by Category</h6>
+                <span class="badge bg-danger-subtle text-danger">{{ data.expense|length }} type{{ data.expense|length|pluralize }}</span>
             </div>
             <div class="card-body p-0">
-                <table class="table table-sm align-middle mb-0">
+                <table class="table table-sm table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr><th scope="col">Category</th><th scope="col" class="text-end">Amount</th></tr>
                     </thead>
@@ -63,7 +196,7 @@
                         {% for row in data.expense %}
                             <tr>
                                 <td>{{ row.category }}</td>
-                                <td class="text-end text-danger">{{ row.total|inr }}</td>
+                                <td class="text-end fw-semibold text-danger">{{ row.total|inr }}</td>
                             </tr>
                         {% empty %}
                             <tr><td colspan="2" class="text-center text-muted py-4">No expenses in this period.</td></tr>
@@ -72,7 +205,7 @@
                     <tfoot class="table-light">
                         <tr class="fw-bold">
                             <td>Total Expenses</td>
-                            <td class="text-end">{{ data.expense_total|inr }}</td>
+                            <td class="text-end text-danger">{{ data.expense_total|inr }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -81,30 +214,45 @@
     </div>
 </div>
 
-<div class="row g-4 mt-1">
-    <div class="col-lg-4">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-                <h6 class="fw-semibold text-muted small text-uppercase">Customer cash-outs (principal, non-P&amp;L)</h6>
-                <h4 class="mb-0 fw-bold text-secondary">{{ data.cash_out_total|inr }}</h4>
-            </div>
-        </div>
+<!-- 3. Kaun Kitna Kharch Kiya (Staff & Drawer Expense Breakdown) -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold">
+            <i class="bi bi-people me-2 text-primary"></i>Staff &amp; Drawer Expense Breakdown (Kaun Kitna Kharch Kiya)
+        </h6>
+        <span class="badge text-bg-light border text-muted">All Outflow Sources</span>
     </div>
-    <div class="col-lg-4">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-                <h6 class="fw-semibold text-muted small text-uppercase">Net Profit</h6>
-                <h4 class="mb-0 fw-bold {% if data.net >= 0 %}text-success{% else %}text-danger{% endif %}">{{ data.net|inr }}</h4>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-4">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-                <h6 class="fw-semibold text-muted small text-uppercase">Margin</h6>
-                <h4 class="mb-0 fw-bold">{% if data.margin is not None %}{{ data.margin|floatformat:2 }}%{% else %}—{% endif %}</h4>
-            </div>
-        </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Staff / Source</th>
+                    <th scope="col" class="text-end">Total Expense Spent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data.staff_expenses %}
+                    <tr>
+                        <td class="fw-semibold">
+                            <i class="bi bi-person-badge me-2 text-secondary"></i>{{ row.staff_name }}
+                        </td>
+                        <td class="text-end fw-bold text-danger">{{ row.total|inr }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted py-4">
+                            No staff or drawer expenses recorded in this period.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="table-light">
+                <tr class="fw-bold">
+                    <td>Grand Total Expenses</td>
+                    <td class="text-end text-danger">{{ data.expense_total|inr }}</td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
 </div>
 {% endblock %}

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% load erp_tags %}
 
 {% block content %}
 <div class="row g-4">
     <div class="col-lg-4">
-        <div class="card shadow-sm border-0">
+        <div class="card shadow-sm border-0 mb-4">
             <div class="card-body text-center p-4">
                 <span class="user-avatar-lg mb-3">
                     {{ employee.full_name|slice:":1"|upper }}
@@ -33,9 +34,154 @@
                 {% endif %}
             </div>
         </div>
+
+        {% if cash_wallet or online_wallet %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-wallet2 me-1 text-primary"></i>Staff Wallets (Float)</h6>
+                <span class="badge text-bg-primary">{{ total_wallet_balance|inr }}</span>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% if cash_wallet %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                        <div>
+                            <div class="fw-semibold text-dark"><i class="bi bi-cash-coin me-1 text-success"></i>Cash Wallet</div>
+                            <small class="text-muted">In-hand counter float</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold {% if cash_balance < 0 %}text-danger{% else %}text-success{% endif %}">{{ cash_balance|inr }}</div>
+                            <a href="{% url 'employees:wallet_detail' cash_wallet.pk %}" class="btn btn-xs btn-outline-primary mt-1">Manage</a>
+                        </div>
+                    </li>
+                    {% endif %}
+                    {% if online_wallet %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                        <div>
+                            <div class="fw-semibold text-dark"><i class="bi bi-phone me-1 text-info"></i>Online / UPI Wallet</div>
+                            <small class="text-muted">Digital portal balance</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold {% if online_balance < 0 %}text-danger{% else %}text-info{% endif %}">{{ online_balance|inr }}</div>
+                            <a href="{% url 'employees:wallet_detail' online_wallet.pk %}" class="btn btn-xs btn-outline-info mt-1">Manage</a>
+                        </div>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <div class="col-lg-8">
+        <!-- Revenue & Performance Contribution Card -->
+        <div class="card shadow-sm border-0 mb-4 border-start border-success border-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-semibold text-success"><i class="bi bi-graph-up-arrow me-2"></i>Generated Income &amp; Revenue Contribution</h6>
+                <span class="badge text-bg-success">Net Shop Earnings</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded border text-center">
+                            <span class="text-muted small d-block">Today's Income</span>
+                            <h4 class="fw-bold text-success mb-1">{{ income_stats.today_income|inr }}</h4>
+                            <span class="badge text-bg-light border text-dark small">
+                                {{ income_stats.today_bills_count }} bill{{ income_stats.today_bills_count|pluralize }} (Total: {{ income_stats.today_billed|inr }})
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded border text-center">
+                            <span class="text-muted small d-block">This Month's Income</span>
+                            <h4 class="fw-bold text-primary mb-1">{{ income_stats.month_income|inr }}</h4>
+                            <span class="badge text-bg-light border text-dark small">
+                                {{ income_stats.month_bills_count }} bill{{ income_stats.month_bills_count|pluralize }} (Total: {{ income_stats.month_billed|inr }})
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded border text-center">
+                            <span class="text-muted small d-block">All-Time Income</span>
+                            <h4 class="fw-bold text-dark mb-1">{{ income_stats.total_income|inr }}</h4>
+                            <span class="badge text-bg-light border text-dark small">
+                                {{ income_stats.total_bills_count }} bill{{ income_stats.total_bills_count|pluralize }} (Total: {{ income_stats.total_billed|inr }})
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-2 px-3 bg-success-subtle text-success-emphasis rounded small d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <span><strong>Note:</strong> Yeh amount staff ke banaye bills se dukan ka <strong>Actual Net Profit/Income</strong> hai. Online portal challan/AEPS withdrawal pass-through alag karke calculate hota hai.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Invoices Table -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2 py-3">
+                <div>
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-receipt me-2 text-primary"></i>Recent Bills Created by {{ employee.full_name }}</h6>
+                    <small class="text-muted">Showing latest 15 bills &bull; Total: {{ income_stats.total_bills_count }} bill{{ income_stats.total_bills_count|pluralize }}</small>
+                </div>
+                {% if employee.user and income_stats.total_bills_count > 0 %}
+                    <a href="{% url 'billing:list' %}?staff={{ employee.user.id }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-list-check me-1"></i>View All Bills ({{ income_stats.total_bills_count }})
+                    </a>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Invoice #</th>
+                            <th scope="col">Date</th>
+                            <th scope="col">Customer</th>
+                            <th scope="col" class="text-end">Billed</th>
+                            <th scope="col" class="text-end">Shop Income</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in income_stats.recent_invoices %}
+                            <tr>
+                                <td>
+                                    <span class="badge text-bg-secondary">{{ inv.invoice_number }}</span>
+                                </td>
+                                <td class="small text-muted">{{ inv.billed_on|date:"d M Y" }}</td>
+                                <td>{{ inv.customer_display }}</td>
+                                <td class="text-end fw-semibold">{{ inv.total|inr }}</td>
+                                <td class="text-end fw-bold text-success">{{ inv.income_amount|inr }}</td>
+                                <td>
+                                    <span class="badge text-bg-{% if inv.status == 'PAID' %}success{% elif inv.status == 'PARTIAL' %}warning{% else %}secondary{% endif %}">
+                                        {{ inv.get_status_display }}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'billing:detail' inv.pk %}" class="btn btn-xs btn-outline-secondary" title="View Invoice Detail">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    Is staff ne abhi tak koi bill create nahi kiya hai.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if employee.user and income_stats.total_bills_count > 15 %}
+                <div class="card-footer bg-white text-center py-2">
+                    <a href="{% url 'billing:list' %}?staff={{ employee.user.id }}" class="btn btn-sm btn-link text-decoration-none fw-semibold">
+                        View all {{ income_stats.total_bills_count }} bills created by {{ employee.full_name }} &rarr;
+                    </a>
+                </div>
+            {% endif %}
+        </div>
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-white">
                 <h6 class="mb-0 fw-semibold">Contact &amp; Personal</h6>
@@ -87,6 +233,9 @@
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-white d-flex align-items-center justify-content-between">
                 <h6 class="mb-0 fw-semibold"><i class="bi bi-shield-lock me-1 text-primary"></i>Permissions &amp; Access Controls</h6>
+                {% if not can_manage_permissions %}
+                    <span class="badge text-bg-light border text-muted"><i class="bi bi-lock-fill me-1 text-warning"></i>Only Owner / Authorized Managers can change permissions</span>
+                {% endif %}
             </div>
             <div class="card-body d-flex flex-column gap-3">
                 <!-- Billing Access Row -->
@@ -108,7 +257,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    {% if perms.employees.change_employee %}
+                    {% if can_manage_permissions %}
                         <form method="post" action="{% url 'employees:toggle_billing' employee.pk %}" class="mb-0">
                             {% csrf_token %}
                             {% if employee.can_create_bills %}
@@ -143,7 +292,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    {% if perms.employees.change_employee %}
+                    {% if can_manage_permissions %}
                         <form method="post" action="{% url 'employees:toggle_topup' employee.pk %}" class="mb-0">
                             {% csrf_token %}
                             {% if employee.can_manage_topup %}
@@ -153,6 +302,152 @@
                             {% else %}
                                 <button type="submit" class="btn btn-sm btn-warning">
                                     <i class="bi bi-shield-check me-1"></i> Give Top-Up Access
+                                </button>
+                            {% endif %}
+                        </form>
+                    {% endif %}
+                </div>
+
+                <!-- Personal UPI / Flexible Payment Collection Row (Rush Hours) -->
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-3 bg-light rounded border">
+                    <div>
+                        <div class="fw-semibold text-dark d-flex align-items-center gap-2">
+                            <i class="bi bi-qr-code text-info"></i> Personal UPI &amp; Flexible Payment Access (Bheed Mode)
+                            {% if employee.can_collect_personal_upi %}
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Active (Enabled)</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Disabled (Standard Mode)</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted mt-1">
+                            {% if employee.can_collect_personal_upi %}
+                                <span class="text-success fw-medium"><i class="bi bi-check-lg me-1"></i>Is employee ko bheed ke time apne personal UPI / counter float par payment lene ka access active hai.</span> Billing me Shop QR vs Staff UPI selector dikhega.
+                            {% else %}
+                                <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Standard Mode: UPI payment direct Shop QR/Bank me record hogi (Staff wallet unaffected rahega).</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if can_manage_permissions %}
+                        <form method="post" action="{% url 'employees:toggle_personal_upi' employee.pk %}" class="mb-0">
+                            {% csrf_token %}
+                            {% if employee.can_collect_personal_upi %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke personal UPI and flexible payment collection from {{ employee.full_name }}?')">
+                                    <i class="bi bi-shield-x me-1"></i> Revoke Access
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-sm btn-info text-white">
+                                    <i class="bi bi-shield-check me-1"></i> Allow Personal UPI
+                                </button>
+                            {% endif %}
+                        </form>
+                    {% endif %}
+                </div>
+
+                <!-- Entire Shop Main Galla & UPI Book Access Row -->
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-3 bg-light rounded border">
+                    <div>
+                        <div class="fw-semibold text-dark d-flex align-items-center gap-2">
+                            <i class="bi bi-safe2 text-primary"></i> Entire Shop Main Galla &amp; UPI Access
+                            {% if employee.is_supervisor or employee.can_view_shop_finance %}
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Disabled</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted mt-1">
+                            {% if employee.is_supervisor %}
+                                <span class="text-success fw-medium"><i class="bi bi-shield-lock me-1"></i>Role Access: {{ employee.get_role_display }} role ke pass automatically Entire Shop Main Galla aur Shop UPI Book dekhne ka full access hai.</span>
+                            {% elif employee.can_view_shop_finance %}
+                                <span class="text-success fw-medium"><i class="bi bi-check-lg me-1"></i>Is employee ko Entire Shop Cashbook (Main Galla) aur Shop UPI Book dekhne ki custom permission di gayi hai.</span>
+                            {% else %}
+                                <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Sirf apna counter cashbook dikhega (Entire shop main galla view disabled hai).</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if can_manage_permissions and not employee.is_supervisor %}
+                        <form method="post" action="{% url 'employees:toggle_shop_finance' employee.pk %}" class="mb-0">
+                            {% csrf_token %}
+                            {% if employee.can_view_shop_finance %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke shop galla and UPI access from {{ employee.full_name }}?')">
+                                    <i class="bi bi-shield-x me-1"></i> Revoke Access
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-shield-check me-1"></i> Allow Galla &amp; UPI View
+                                </button>
+                            {% endif %}
+                        </form>
+                    {% endif %}
+                </div>
+
+                <!-- Permission Management Access Row -->
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-3 bg-light rounded border">
+                    <div>
+                        <div class="fw-semibold text-dark d-flex align-items-center gap-2">
+                            <i class="bi bi-person-gear text-dark"></i> Staff Permission Management Access
+                            {% if employee.role == 'OWNER' or employee.can_manage_permissions %}
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Disabled</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted mt-1">
+                            {% if employee.role == 'OWNER' %}
+                                <span class="text-success fw-medium"><i class="bi bi-shield-lock me-1"></i>Owner Role: Owner ke paas automatically sabhi staff ke permissions control karne ka full right hai.</span>
+                            {% elif employee.can_manage_permissions %}
+                                <span class="text-success fw-medium"><i class="bi bi-check-lg me-1"></i>Delegated Right: Is staff ko Owner dwara doosre employees ke permissions set / change karne ka access diya gaya hai.</span>
+                            {% else %}
+                                <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Is staff ke paas doosre staff ke permissions modify karne ka access nahi hai (Sirf Owner ya authorized manager set kar sakte hain).</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if can_manage_permissions and employee.role != 'OWNER' %}
+                        <form method="post" action="{% url 'employees:toggle_manage_permissions' employee.pk %}" class="mb-0">
+                            {% csrf_token %}
+                            {% if employee.can_manage_permissions %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke permission management access from {{ employee.full_name }}?')">
+                                    <i class="bi bi-shield-x me-1"></i> Revoke Permission Rights
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-sm btn-dark">
+                                    <i class="bi bi-person-check me-1"></i> Grant Permission Rights
+                                </button>
+                            {% endif %}
+                        </form>
+                    {% endif %}
+                </div>
+
+                <!-- Customer Credit Management Access Row -->
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 p-3 bg-light rounded border">
+                    <div>
+                        <div class="fw-semibold text-dark d-flex align-items-center gap-2">
+                            <i class="bi bi-credit-card-2-front text-danger"></i> Customer Credit Limit Access
+                            {% if employee.role == 'OWNER' or employee.can_manage_customer_credit %}
+                                <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary"><i class="bi bi-x-circle me-1"></i>Disabled</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted mt-1">
+                            {% if employee.role == 'OWNER' %}
+                                <span class="text-success fw-medium"><i class="bi bi-shield-lock me-1"></i>Owner Role: Owner ke paas customer credit limit set karne aur modify karne ka full right hai.</span>
+                            {% elif employee.can_manage_customer_credit %}
+                                <span class="text-success fw-medium"><i class="bi bi-check-lg me-1"></i>Is employee ko customers ke Credit on Account limit ko set / increase / reduce karne ki permission di gayi hai.</span>
+                            {% else %}
+                                <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Is employee ke paas customer credit limit modify karne ka access nahi hai (Customer advance deposit koi bhi accept kar sakta hai).</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if can_manage_permissions and employee.role != 'OWNER' %}
+                        <form method="post" action="{% url 'employees:toggle_customer_credit' employee.pk %}" class="mb-0">
+                            {% csrf_token %}
+                            {% if employee.can_manage_customer_credit %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Revoke customer credit limit permission from {{ employee.full_name }}?')">
+                                    <i class="bi bi-shield-x me-1"></i> Revoke Credit Access
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-credit-card-2-front me-1"></i> Grant Credit Access
                                 </button>
                             {% endif %}
                         </form>
@@ -173,14 +468,16 @@
                             {% if employee.id_proof_number %}<span class="text-muted">({{ employee.id_proof_number }})</span>{% endif %}
                         </span>
                     </div>
-                    <div class="col-md-6">
-                        <span class="text-muted small d-block">Hourly Wage Rate</span>
-                        <span>₹{{ employee.hourly_rate|floatformat:2 }}</span>
-                    </div>
-                    <div class="col-12">
-                        <span class="text-muted small d-block">Notes</span>
-                        <span>{{ employee.notes|default:"—" }}</span>
-                    </div>
+                    {% if can_view_all_profiles %}
+                        <div class="col-md-6">
+                            <span class="text-muted small d-block">Hourly Wage Rate</span>
+                            <span>₹{{ employee.hourly_rate|floatformat:2 }}</span>
+                        </div>
+                        <div class="col-12">
+                            <span class="text-muted small d-block">Admin Notes</span>
+                            <span>{{ employee.notes|default:"—" }}</span>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

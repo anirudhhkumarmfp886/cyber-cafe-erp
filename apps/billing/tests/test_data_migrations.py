@@ -26,7 +26,7 @@ class WorkEntryImportMigrationTests(TransactionTestCase):
         ("workentry", "0001_initial"),
         ("employees", "0007_employee_can_manage_topup"),
     ]
-    migrate_to = [("billing", "0007_link_imported_work_entry_cash_entries")]
+    migrate_to = [("billing", "0008_invoice_payment_destination_and_more")]
 
     def _old_models(self):
         apps = _executor_at(self.migrate_from).loader.project_state(self.migrate_from).apps

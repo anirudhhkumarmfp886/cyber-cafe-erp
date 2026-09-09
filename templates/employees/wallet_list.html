@@ -18,7 +18,8 @@
                     <th scope="col">Role</th>
                     <th scope="col" class="text-end">Cash Wallet</th>
                     <th scope="col" class="text-end">Online / UPI Wallet</th>
-                    <th scope="col" class="text-end">Total</th>
+                    <th scope="col" class="text-end">Float Total</th>
+                    <th scope="col" class="text-end">Today's Income</th>
                     <th scope="col" class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -39,17 +40,25 @@
                         <td class="text-end fw-semibold {% if row.online_balance < 0 %}text-danger{% endif %}">{{ row.online_balance|inr }}</td>
                         <td class="text-end fw-semibold">{{ row.total_balance|inr }}</td>
                         <td class="text-end">
-                            <a href="{% url 'employees:wallet_detail' row.cash_wallet.pk %}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-cash-coin me-1"></i>Cash
-                            </a>
-                            <a href="{% url 'employees:wallet_detail' row.online_wallet.pk %}" class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-phone me-1"></i>Online
-                            </a>
+                            <span class="fw-bold text-success">{{ row.today_income|inr }}</span>
+                            <span class="badge text-bg-light border small ms-1">{{ row.today_bills_count }} bill{{ row.today_bills_count|pluralize }}</span>
+                        </td>
+                        <td class="text-end">
+                            {% if can_view_all_profiles or row.employee.user == request.user %}
+                                <a href="{% url 'employees:wallet_detail' row.cash_wallet.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-cash-coin me-1"></i>Cash
+                                </a>
+                                <a href="{% url 'employees:wallet_detail' row.online_wallet.pk %}" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-phone me-1"></i>Online
+                                </a>
+                            {% else %}
+                                <span class="badge text-bg-light border text-muted small"><i class="bi bi-lock-fill me-1"></i>Private</span>
+                            {% endif %}
                         </td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-5">
+                        <td colspan="7" class="text-center text-muted py-5">
                             <i class="bi bi-wallet2 fs-2 d-block mb-2"></i>
                             No employees yet. Add employees to create their wallets.
                         </td>

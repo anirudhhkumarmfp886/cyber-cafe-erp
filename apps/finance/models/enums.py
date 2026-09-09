@@ -21,6 +21,7 @@ class CashEntryCategory(models.TextChoices):
     COMMISSION = "COMMISSION", "Commission / E-Sathi"
     OTHER_INCOME = "OTHER_INCOME", "Other Income"
     OWNER_DEPOSIT = "OWNER_DEPOSIT", "Owner Deposit"
+    FLOAT_IN = "FLOAT_IN", "Staff Float In (Float Returned)"
     # Expense categories
     PURCHASE = "PURCHASE", "Purchases"
     RENT = "RENT", "Rent"
@@ -31,7 +32,9 @@ class CashEntryCategory(models.TextChoices):
     UTILITIES = "UTILITIES", "Utilities"
     TAX = "TAX", "Tax"
     CASH_OUT = "CASH_OUT", "Cash Out / E-Sathi"
-    ADVANCE = "ADVANCE", "Advance / Staff Float"
+    ADVANCE = "ADVANCE", "Salary Advance"
+    FLOAT_OUT = "FLOAT_OUT", "Staff Float Out (Counter Float)"
+    REIMBURSEMENT = "REIMBURSEMENT", "Cash Float Reimbursement"
     OWNER_WITHDRAWAL = "OWNER_WITHDRAWAL", "Owner Withdrawal"
     MISC = "MISC", "Miscellaneous"
 
@@ -42,6 +45,7 @@ INCOME_CATEGORIES = {
     CashEntryCategory.COMMISSION,
     CashEntryCategory.OTHER_INCOME,
     CashEntryCategory.OWNER_DEPOSIT,
+    CashEntryCategory.FLOAT_IN,
 }
 
 EXPENSE_CATEGORIES = {
@@ -55,6 +59,8 @@ EXPENSE_CATEGORIES = {
     CashEntryCategory.TAX,
     CashEntryCategory.CASH_OUT,
     CashEntryCategory.ADVANCE,
+    CashEntryCategory.FLOAT_OUT,
+    CashEntryCategory.REIMBURSEMENT,
     CashEntryCategory.OWNER_WITHDRAWAL,
     CashEntryCategory.MISC,
 }

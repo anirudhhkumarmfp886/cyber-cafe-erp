@@ -17,5 +17,9 @@ urlpatterns = [
     path("<uuid:pk>/edit/", employee_views.EmployeeUpdateView.as_view(), name="update"),
     path("<uuid:pk>/toggle-billing/", employee_views.EmployeeToggleBillingView.as_view(), name="toggle_billing"),
     path("<uuid:pk>/toggle-topup/", employee_views.EmployeeToggleTopupView.as_view(), name="toggle_topup"),
+    path("<uuid:pk>/toggle-personal-upi/", employee_views.EmployeeTogglePersonalUpiView.as_view(), name="toggle_personal_upi"),
+    path("<uuid:pk>/toggle-shop-finance/", employee_views.EmployeeToggleShopFinanceView.as_view(), name="toggle_shop_finance"),
+    path("<uuid:pk>/toggle-manage-permissions/", employee_views.EmployeeToggleManagePermissionsView.as_view(), name="toggle_manage_permissions"),
+    path("<uuid:pk>/toggle-customer-credit/", employee_views.EmployeeToggleCustomerCreditView.as_view(), name="toggle_customer_credit"),
     path("<uuid:pk>/deactivate/", employee_views.EmployeeDeactivateView.as_view(), name="deactivate"),
 ]

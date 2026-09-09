@@ -5,6 +5,8 @@ from django.test import TestCase
 from apps.employees.models import Role, WalletTransaction, WalletTransactionCategory, WalletType
 from apps.employees.services.employee_service import EmployeeService
 from apps.employees.services.wallet_service import WalletService
+from apps.finance.services.cashbook_service import CashBookService
+
 
 User = get_user_model()
 
@@ -103,7 +105,8 @@ class WalletServiceTests(TestCase):
         ).count()
         self.assertEqual(count, 1)
 
-    def test_top_up_books_advance_into_cash_book(self):
+    def test_top_up_books_float_out_into_cash_book(self):
+        CashBookService.owner_deposit(amount=5000, by=self.owner)
         WalletService.top_up(
             employee=self.staff,
             wallet_type=WalletType.CASH,
@@ -114,6 +117,47 @@ class WalletServiceTests(TestCase):
         from apps.finance.models import CashBookEntry
         from apps.finance.models.enums import CashEntryCategory
 
-        entry = CashBookEntry.objects.get(category=CashEntryCategory.ADVANCE)
+        entry = CashBookEntry.objects.get(category=CashEntryCategory.FLOAT_OUT)
         self.assertEqual(entry.amount, 2000)
-        self.assertEqual(entry.staff, self.staff)
+        self.assertEqual(entry.party_name, self.staff.full_name)
+        self.assertIsNone(entry.staff)
+
+    def test_return_float_cycle_resets_balance(self):
+        CashBookService.owner_deposit(amount=5000, by=self.owner)
+        # 1. Morning: owner gives ₹2,000 float
+        WalletService.top_up(
+            employee=self.staff,
+            wallet_type=WalletType.CASH,
+            amount=2000,
+            by=self.owner,
+        )
+        self.assertEqual(WalletService.balance_of(self._cash_wallet(self.staff)), 2000)
+        self.assertEqual(CashBookService.balance(), 3000)
+
+        # 2. Evening: staff returns ₹2,000 float back to shop
+        debit_txn, cash_entry = WalletService.return_float(
+            employee=self.staff,
+            wallet_type=WalletType.CASH,
+            amount=2000,
+            by=self.staff.user,
+        )
+        self.assertEqual(debit_txn.category, WalletTransactionCategory.FLOAT_OUT)
+        from apps.finance.models.enums import CashEntryCategory
+        self.assertEqual(cash_entry.category, CashEntryCategory.FLOAT_IN)
+        # Staff wallet returns to 0
+        self.assertEqual(WalletService.balance_of(self._cash_wallet(self.staff)), 0)
+        # Shop cash drawer is back to 5000
+        self.assertEqual(CashBookService.balance(), 5000)
+
+    def test_top_up_cash_fails_on_insufficient_drawer_balance(self):
+        CashBookService.owner_deposit(amount=500, by=self.owner)
+        with self.assertRaises(ValueError) as ctx:
+            WalletService.top_up(
+                employee=self.staff,
+                wallet_type=WalletType.CASH,
+                amount=1000,
+                by=self.owner,
+            )
+        self.assertIn("Insufficient shop cash drawer balance", str(ctx.exception))
+
+

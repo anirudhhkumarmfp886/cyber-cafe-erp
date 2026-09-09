@@ -40,6 +40,7 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             "status": self.request.GET.get("status", ""),
             "from_date": self.request.GET.get("from_date", ""),
             "to_date": self.request.GET.get("to_date", ""),
+            "staff": self.request.GET.get("staff", ""),
             "q": self.request.GET.get("q", ""),
         }
         return InvoiceSelector.list_invoices(filters)
@@ -50,8 +51,10 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context["statuses"] = InvoiceStatus.choices
         context["pending_total"] = InvoiceSelector.pending_total()
         context["can_create_customer"] = self.request.user.has_perm("customers.add_customer")
+        from apps.employees.selectors.employee_selector import EmployeeSelector
+        context["staff_list"] = EmployeeSelector.list_active()
         if self.request.user.has_perm("billing.add_invoice"):
-            context["invoice_form"] = InvoiceForm()
+            context["invoice_form"] = InvoiceForm(user=self.request.user)
             context["line_formset"] = InvoiceLineFormSet(
                 instance=Invoice(), prefix=_FORMSET_PREFIX
             )
@@ -78,7 +81,7 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     def post(self, request):
         if not request.user.has_perm("billing.add_invoice"):
             return self.handle_no_permission()
-        form = InvoiceForm(request.POST)
+        form = InvoiceForm(request.POST, user=request.user)
         formset = InvoiceLineFormSet(
             request.POST, instance=Invoice(), prefix=_FORMSET_PREFIX
         )
@@ -91,6 +94,7 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
         data = form.cleaned_data
         customer_name = (data.get("customer_name") or "").strip()
+        customer_phone = (data.get("customer_phone") or "").strip() or None
         if (
             customer_name
             and data.get("create_customer")
@@ -98,7 +102,7 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ):
             try:
                 data["customer"] = CustomerService.create_customer(
-                    data={"full_name": customer_name}, by=request.user
+                    data={"full_name": customer_name, "phone": customer_phone}, by=request.user
                 )
             except ValueError as exc:
                 messages.error(request, str(exc))

@@ -19,7 +19,7 @@ class BaseAdmin(admin.ModelAdmin):
 
     readonly_fields = ("id", "created_at", "updated_at", "created_by", "updated_by", "deleted_at", "deleted_by")
 
-    actions = ("hard_delete", "restore_deleted")
+    actions = ("soft_delete_action", "hard_delete", "restore_deleted")
 
     def save_model(self, request, obj, form, change):
         # CurrentUserMiddleware already handles created_by/updated_by, but
@@ -28,13 +28,11 @@ class BaseAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
     def has_delete_permission(self, request, obj=None):
-        # Soft-delete only in the admin; hard deletes are banned except
-        # through the explicit hard_delete action.
-        return False
+        return bool(request.user and request.user.is_superuser)
 
     def delete_queryset(self, request, queryset):
         for obj in queryset:
-            obj.soft_delete(by=request.user)
+            obj.delete()
 
     # ------------------------------------------------------------------
     # "Show deleted" toggle
@@ -77,31 +75,27 @@ class BaseAdmin(admin.ModelAdmin):
     # ------------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------------
+    @admin.action(description="🗑️ Soft-delete selected records (Move to trash)")
+    def soft_delete_action(self, request, queryset):
+        selected = request.POST.getlist(ACTION_CHECKBOX_NAME)
+        objs = self.model.all_objects.filter(pk__in=selected)
+        trashed = 0
+        for obj in objs:
+            if obj.is_active:
+                obj.soft_delete(by=request.user)
+                trashed += 1
+        self.message_user(request, f"{trashed} record(s) moved to trash (soft-deleted).", level=messages.SUCCESS)
+
     @admin.action(
-        description="Purge selected soft-deleted records (permanent hard delete, cannot be undone)"
+        description="🔥 Permanently Hard-Delete selected records (Cannot be undone)"
     )
     def hard_delete(self, request, queryset):
-        """Permanently remove soft-deleted rows; active rows are soft-deleted.
-
-        The standard admin has no delete button, so this action doubles as
-        the only way to trash (soft-delete) an active record from the admin.
-        Rows that are already soft-deleted are removed from the database
-        entirely — this is irreversible.
-
-        The action reads the selected pks straight from the POST (not from
-        ``queryset``, which is limited to the currently visible view) so it
-        works in both the active and the "Show deleted" changelist.
-        """
+        """Permanently remove selected rows from the database."""
         selected = request.POST.getlist(ACTION_CHECKBOX_NAME)
         objs = self.model.all_objects.filter(pk__in=selected)
         purged = 0
-        trashed = 0
         blocked = 0
         for obj in objs:
-            if obj.deleted_at is None:
-                obj.soft_delete(by=request.user)
-                trashed += 1
-                continue
             try:
                 obj.delete()
                 purged += 1
@@ -110,28 +104,26 @@ class BaseAdmin(admin.ModelAdmin):
 
         parts = []
         if purged:
-            parts.append(f"{purged} permanently deleted")
-        if trashed:
-            parts.append(f"{trashed} soft-deleted (were still active)")
+            parts.append(f"{purged} permanently deleted from DB")
         if blocked:
-            parts.append(f"{blocked} skipped — blocked by related records")
+            parts.append(f"{blocked} skipped — protected by related records")
         summary = "; ".join(parts) if parts else "Nothing deleted."
         level = messages.WARNING if blocked else messages.SUCCESS
         self.message_user(request, f"Hard delete: {summary}", level=level)
 
-    @admin.action(description="Restore selected soft-deleted records")
+    @admin.action(description="♻️ Restore selected soft-deleted records")
     def restore_deleted(self, request, queryset):
         selected = request.POST.getlist(ACTION_CHECKBOX_NAME)
         objs = self.model.all_objects.filter(pk__in=selected)
         restored = 0
         skipped = 0
         for obj in objs:
-            if obj.deleted_at is None:
+            if not obj.is_active or obj.deleted_at is not None:
+                obj.restore(by=request.user)
+                restored += 1
+            else:
                 skipped += 1
-                continue
-            obj.restore(by=request.user)
-            restored += 1
         message = f"Restored {restored} record(s)."
         if skipped:
-            message += f" {skipped} skipped — they were not deleted."
+            message += f" {skipped} skipped — they were already active."
         self.message_user(request, message)

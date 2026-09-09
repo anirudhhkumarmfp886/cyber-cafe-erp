@@ -152,8 +152,13 @@ class ServiceCustomFieldsJsonView(LoginRequiredMixin, PermissionRequiredMixin, V
     def get(self, request):
         service = ServiceSelector.get_by_id(request.GET.get("service", ""))
         if service is None:
-            return JsonResponse({"fields": []})
-        return JsonResponse({"fields": ServiceSelector.custom_field_payload(service, request.user)})
+            return JsonResponse({"fields": [], "price": "0", "total_formula": ""})
+        return JsonResponse({
+            "price": str(service.price),
+            "total_formula": service.total_formula or "",
+            "income_formula": service.income_formula or "",
+            "fields": ServiceSelector.custom_field_payload(service, request.user),
+        })
 
 
 class ServiceDeactivateView(LoginRequiredMixin, PermissionRequiredMixin, View):

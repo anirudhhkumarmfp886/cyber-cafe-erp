@@ -15,6 +15,16 @@
                     <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
+            {% if staff_list %}
+                <select name="staff" class="form-select form-select-sm">
+                    <option value="">All Staff</option>
+                    {% for s in staff_list %}
+                        {% if s.user %}
+                            <option value="{{ s.user.id }}" {% if request.GET.staff == s.user.id|stringformat:"s" %}selected{% endif %}>{{ s.full_name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            {% endif %}
             <input type="date" name="from_date" class="form-control form-control-sm" value="{{ request.GET.from_date }}">
             <input type="date" name="to_date" class="form-control form-control-sm" value="{{ request.GET.to_date }}">
             <input type="text" name="q" class="form-control form-control-sm" placeholder="Customer / number" value="{{ request.GET.q }}">
@@ -25,12 +35,19 @@
 </div>
 
 {% if invoice_form %}
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-white">
-            <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>New Bill</h6>
+    <div class="card shadow-sm border-0 mb-4" id="billing-card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+            <h6 class="mb-0 fw-semibold">
+                <i class="bi bi-receipt me-2 text-primary"></i>
+                <span id="step-title">Step 1: Services &amp; Work Entry</span>
+            </h6>
+            <div class="d-flex gap-2">
+                <span class="badge bg-primary px-3 py-2" id="badge-step-1">1. Services &amp; Items</span>
+                <span class="badge bg-light text-muted border px-3 py-2" id="badge-step-2">2. Payment &amp; Checkout</span>
+            </div>
         </div>
         <div class="card-body">
-            <form method="post">
+            <form method="post" id="billing-form">
                 {% csrf_token %}
                 {% if invoice_form.non_field_errors %}
                     <div class="col-12 mb-3">
@@ -39,82 +56,200 @@
                         {% endfor %}
                     </div>
                 {% endif %}
-                <div class="row g-3">
-                    <div class="col-md-4">{% include "includes/field.html" with field=invoice_form.customer %}</div>
-                    <div class="col-md-2">{% include "includes/field.html" with field=invoice_form.payment_mode %}</div>
-                    <div class="col-md-3">{% include "includes/field.html" with field=invoice_form.bank_account %}</div>
-                    <div class="col-md-3">{% include "includes/field.html" with field=invoice_form.discount %}</div>
-                </div>
-                <div class="row g-3 mt-0">
-                    <div class="col-md-4">{% include "includes/field.html" with field=invoice_form.customer_name %}</div>
-                    <div class="col-md-3 d-flex align-items-center pt-4">
-                        {% if can_create_customer %}
-                            <div class="form-check">
-                                {{ invoice_form.create_customer }}
-                                <label class="form-check-label small" for="{{ invoice_form.create_customer.id_for_label }}">
-                                    Save as a new customer
-                                </label>
-                            </div>
-                        {% else %}
-                            <span class="small text-muted">Name only — you don't have permission to create customer records.</span>
-                        {% endif %}
+
+                <!-- ================== STEP 1: WORK & CUSTOMER ENTRY ================== -->
+                <div id="step-1-container">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            {% include "includes/field.html" with field=invoice_form.customer %}
+                        </div>
+                        <div class="col-md-4">
+                            {% include "includes/field.html" with field=invoice_form.customer_name %}
+                        </div>
+                        <div class="col-md-4">
+                            {% include "includes/field.html" with field=invoice_form.customer_phone %}
+                        </div>
                     </div>
-                    <div class="col-md-5">{% include "includes/field.html" with field=invoice_form.notes %}</div>
+                    <div class="row g-3 mt-0">
+                        <div class="col-md-4 d-flex align-items-center">
+                            {% if can_create_customer %}
+                                <div class="form-check">
+                                    {{ invoice_form.create_customer }}
+                                    <label class="form-check-label small" for="{{ invoice_form.create_customer.id_for_label }}">
+                                        Save as a new customer
+                                    </label>
+                                </div>
+                            {% else %}
+                                <span class="small text-muted">Name only — you don't have permission to create customer records.</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-8">
+                            {% include "includes/field.html" with field=invoice_form.notes %}
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0">Line Items</label>
+                            <span class="badge text-bg-primary fs-6 px-3 py-1" id="step1-live-total-badge">Subtotal: ₹0.00</span>
+                        </div>
+                        {% if line_formset.non_form_errors %}
+                            <div class="alert alert-danger py-2">
+                                {% for error in line_formset.non_form_errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                        {{ line_formset.management_form }}
+                        {% for line_form in line_formset %}
+                            <div class="border rounded p-2 mb-2 line-form-wrapper" id="line-wrap-{{ forloop.counter0 }}">
+                                <div class="row g-2 align-items-end line-row">
+                                    {{ line_form.id }}
+                                    <div class="col-md-5">{% include "includes/field.html" with field=line_form.service %}</div>
+                                    <div class="col-md-3">{% include "includes/field.html" with field=line_form.qty %}</div>
+                                    <div class="col-md-2 pb-3">
+                                        {% if line_formset.can_delete %}
+                                            <label class="form-label d-block">&nbsp;</label>
+                                            {{ line_form.DELETE }} <span class="small text-muted">remove</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-2 pb-3">
+                                        <div class="small fw-semibold text-end text-primary line-amount-display" id="line-amt-{{ forloop.counter0 }}"></div>
+                                        {% if line_form.service.errors or line_form.qty.errors %}
+                                            <span class="text-danger small">Fix errors above</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="mt-1 cf-wrap" id="cf-wrap-{{ forloop.counter0 }}" data-row="{{ forloop.counter0 }}"></div>
+                            </div>
+                        {% endfor %}
+                        <div class="mt-2 mb-3">
+                            <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="addLineRow()">
+                                <i class="bi bi-plus-circle me-1"></i> Add Another Service
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                        <span class="text-muted small">Items add karne ke baad "Proceed to Payment" par click karein.</span>
+                        <button type="button" class="btn btn-primary px-4 py-2 fw-semibold" id="btn-goto-step-2" onclick="goToStep2()">
+                            Proceed to Payment <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="mt-2">
-                    <label class="form-label fw-semibold">Line Items</label>
-                    {% if line_formset.non_form_errors %}
-                        <div class="alert alert-danger py-2">
-                            {% for error in line_formset.non_form_errors %}{{ error }}{% endfor %}
-                        </div>
-                    {% endif %}
-                    {{ line_formset.management_form }}
-                    {% for line_form in line_formset %}
-                        <div class="border rounded p-2 mb-2">
-                            <div class="row g-2 align-items-end line-row">
-                                {{ line_form.id }}
-                                <div class="col-md-5">{% include "includes/field.html" with field=line_form.service %}</div>
-                                <div class="col-md-3">{% include "includes/field.html" with field=line_form.qty %}</div>
-                                <div class="col-md-2 pb-3">
-                                    {% if line_formset.can_delete %}
-                                        <label class="form-label d-block">&nbsp;</label>
-                                        {{ line_form.DELETE }} <span class="small text-muted">remove</span>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-2 pb-3">
-                                    {% if line_form.service.errors or line_form.qty.errors %}
-                                        <span class="text-danger small">Fix the fields above</span>
-                                    {% endif %}
-                                </div>
+                <!-- ================== STEP 2: PAYMENT & CHECKOUT ================== -->
+                <div id="step-2-container" style="display: none;">
+                    <!-- Bill Summary Banner with Subtotal, Discount & Net Payable -->
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <div class="row align-items-center g-3">
+                            <div class="col-md-4">
+                                <span class="small text-muted d-block">Bill Subtotal</span>
+                                <span class="fs-4 fw-bold text-dark" id="display-subtotal">₹0.00</span>
                             </div>
-                            <div class="mt-1 cf-wrap" id="cf-wrap-{{ forloop.counter0 }}" data-row="{{ forloop.counter0 }}"></div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold mb-1" for="{{ invoice_form.discount.id_for_label }}">
+                                    Discount (₹)
+                                </label>
+                                {{ invoice_form.discount }}
+                            </div>
+                            <div class="col-md-4 text-md-end">
+                                <span class="small text-muted d-block">Net Payable Total</span>
+                                <span class="fs-3 fw-bold text-success" id="display-net-total">₹0.00</span>
+                            </div>
                         </div>
-                    {% endfor %}
-                </div>
-                <div class="mt-3">
-                    <div class="card border">
-                        <div class="card-header bg-white py-2">
-                            <label class="form-label fw-semibold mb-0">Split Payment</label>
-                            <span class="small text-muted">Leave all blank for a full-credit bill (needs a customer). Amounts must sum to the bill total.</span>
+                    </div>
+
+                    <!-- Payment Mode & Routing -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            {% include "includes/field.html" with field=invoice_form.payment_mode %}
                         </div>
-                        <div class="card-body">
+                        {% if not invoice_form.payment_destination.is_hidden %}
+                            <div class="col-md-4">
+                                {% include "includes/field.html" with field=invoice_form.payment_destination %}
+                            </div>
+                            <div class="col-md-4">
+                                {% include "includes/field.html" with field=invoice_form.bank_account %}
+                            </div>
+                        {% else %}
+                            {{ invoice_form.payment_destination }}
+                            <div class="col-md-8">
+                                {% include "includes/field.html" with field=invoice_form.bank_account %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Split Payment Section -->
+                    <div id="split-payment-section" class="card border mb-3" style="display: none;">
+                        <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <label class="form-label fw-semibold mb-0">Split Payment Breakdown</label>
+                                <span class="small text-muted ms-2">(Add rows for Cash, UPI, Card, Transfer, or Udhaar)</span>
+                            </div>
+                            <span class="badge text-bg-warning px-3 py-1" id="split-status-badge">Remaining: ₹0.00</span>
+                        </div>
+                        <div class="card-body py-2">
                             {{ payment_formset.management_form }}
                             {% for pay_form in payment_formset %}
                                 <div class="row g-2 align-items-end mb-2 pay-row">
                                     <div class="col-md-3">{% include "includes/field.html" with field=pay_form.mode %}</div>
-                                    <div class="col-md-3">{% include "includes/field.html" with field=pay_form.amount %}</div>
-                                    <div class="col-md-6">{% include "includes/field.html" with field=pay_form.bank_account %}</div>
+                                    <div class="col-md-2">{% include "includes/field.html" with field=pay_form.amount %}</div>
+                                    <div class="col-md-3">{% include "includes/field.html" with field=pay_form.payment_destination %}</div>
+                                    <div class="col-md-4">{% include "includes/field.html" with field=pay_form.bank_account %}</div>
                                 </div>
                             {% endfor %}
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addPayRow()">
-                                <i class="bi bi-plus me-1"></i>Add payment row
-                            </button>
+                            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addPayRow()">
+                                    <i class="bi bi-plus me-1"></i>Add payment row
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="autoFillRemaining()">
+                                    <i class="bi bi-magic me-1"></i>Auto-fill Remaining
+                                </button>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <button type="button" class="btn btn-outline-secondary px-3" onclick="goToStep1()">
+                            <i class="bi bi-arrow-left me-1"></i>Back to Edit Items
+                        </button>
+                        <button type="button" class="btn btn-success btn-lg px-4 py-2 fw-semibold" id="btn-bill-now" onclick="submitBillingForm()">
+                            <i class="bi bi-check-circle me-1"></i>Confirm &amp; Bill Now
+                        </button>
+                    </div>
                 </div>
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-receipt me-1"></i>Bill Now</button>
+
+                <!-- Walk-in Udhaar Protection Modal Prompt -->
+                <div class="modal fade" id="udhaarModal" tabindex="-1" aria-labelledby="udhaarModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning-subtle py-2">
+                                <h5 class="modal-title fs-6 fw-bold" id="udhaarModalLabel">
+                                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Customer Registration Required for Udhaar
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="small text-muted mb-3">
+                                    Walk-in (unknown) customer ko udhaar nahi diya ja sakta. Khata track karne ke liye kripya customer ka <strong>Naam</strong> aur <strong>Mobile Number</strong> darj karein.
+                                </p>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Customer Full Name *</label>
+                                    <input type="text" id="modal-cust-name" class="form-control" placeholder="e.g. Ramesh Kumar">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Mobile Number *</label>
+                                    <input type="text" id="modal-cust-phone" class="form-control" placeholder="10-digit mobile number">
+                                </div>
+                            </div>
+                            <div class="modal-footer py-2">
+                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="saveCustomerAndContinueUdhaar()">
+                                    Save Customer &amp; Proceed
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
@@ -181,6 +316,7 @@
     const TOTAL = {{ line_formset.total_form_count }};
     const PREFIX = "{{ line_formset.prefix }}";
     const JSON_URL = "{% url 'services:custom_fields_json' %}";
+    window.serviceCache = {};
 
     function renderCustomFields(rowIndex, container, fields) {
         container.innerHTML = '';
@@ -196,7 +332,7 @@
             if (f.field_type === 'BANK_ACCOUNT') {
                 control = document.createElement('select');
                 control.name = inputName;
-                control.className = 'form-select form-select-sm';
+                control.className = 'form-select form-select-sm cf-input';
                 const empty = document.createElement('option');
                 empty.value = '';
                 empty.textContent = '— Select bank account —';
@@ -213,7 +349,9 @@
             } else {
                 control = document.createElement('input');
                 control.name = inputName;
-                control.className = 'form-control form-control-sm';
+                control.className = 'form-control form-control-sm cf-input';
+                control.setAttribute('data-var', f.variable_name);
+                control.setAttribute('data-type', f.field_type);
                 if (f.field_type === 'DATE') {
                     control.type = 'date';
                 } else if (f.field_type === 'NUMBER' || f.field_type === 'BANK_TRANSFER') {
@@ -230,6 +368,8 @@
                 }
             }
             if (f.required) control.required = true;
+            control.addEventListener('input', updateEstimatedTotals);
+            control.addEventListener('change', updateEstimatedTotals);
             wrap.appendChild(label);
             wrap.appendChild(control);
             if (f.help_text) {
@@ -240,29 +380,354 @@
             }
             container.appendChild(wrap);
         });
+        updateEstimatedTotals();
     }
 
     function loadCustomFields(rowIndex, serviceId, container) {
-        if (!serviceId) { container.innerHTML = ''; return; }
+        if (!serviceId) {
+            container.innerHTML = '';
+            delete window.serviceCache[rowIndex];
+            updateEstimatedTotals();
+            return;
+        }
         container.innerHTML = '<div class="small text-muted py-1">Loading fields...</div>';
         fetch(JSON_URL + '?service=' + encodeURIComponent(serviceId))
             .then(function (r) { return r.json(); })
-            .then(function (data) { renderCustomFields(rowIndex, container, data.fields); })
-            .catch(function () { container.innerHTML = ''; });
+            .then(function (data) {
+                window.serviceCache[rowIndex] = data;
+                renderCustomFields(rowIndex, container, data.fields);
+            })
+            .catch(function () {
+                container.innerHTML = '';
+                updateEstimatedTotals();
+            });
     }
 
     function bindRow(i) {
         const sel = document.getElementById('id_' + PREFIX + '-' + i + '-service');
+        const qty = document.getElementById('id_' + PREFIX + '-' + i + '-qty');
+        const del = document.getElementById('id_' + PREFIX + '-' + i + '-DELETE');
         const container = document.getElementById('cf-wrap-' + i);
-        if (!sel || !container) return;
-        sel.addEventListener('change', function () {
-            loadCustomFields(i, sel.value, container);
-        });
-        if (sel.value) loadCustomFields(i, sel.value, container);
+        if (sel && container) {
+            sel.addEventListener('change', function () {
+                loadCustomFields(i, sel.value, container);
+            });
+            if (sel.value) loadCustomFields(i, sel.value, container);
+        }
+        if (qty) {
+            qty.addEventListener('input', updateEstimatedTotals);
+            qty.addEventListener('change', updateEstimatedTotals);
+        }
+        if (del) {
+            del.addEventListener('change', updateEstimatedTotals);
+        }
     }
 
+    window.bindLineRow = bindRow;
+    window.loadCustomFields = loadCustomFields;
+
     for (let i = 0; i < TOTAL; i++) bindRow(i);
+
+    const discountInput = document.getElementById('id_discount');
+    if (discountInput) {
+        discountInput.addEventListener('input', updateEstimatedTotals);
+        discountInput.addEventListener('change', updateEstimatedTotals);
+    }
+
+    const payModeSel = document.getElementById('id_payment_mode');
+    if (payModeSel) {
+        payModeSel.addEventListener('change', handlePaymentModeChange);
+    }
+
+    // Bind existing pay rows
+    document.querySelectorAll('.pay-row input, .pay-row select').forEach(function(el) {
+        el.addEventListener('input', updateSplitStatus);
+        el.addEventListener('change', updateSplitStatus);
+    });
 })();
+
+function calcLineEstimate(rowIndex) {
+    const sel = document.getElementById('id_line-' + rowIndex + '-service');
+    const qtyInput = document.getElementById('id_line-' + rowIndex + '-qty');
+    const delInput = document.getElementById('id_line-' + rowIndex + '-DELETE');
+    if (!sel || !sel.value || (delInput && delInput.checked)) return 0;
+
+    const qty = parseFloat(qtyInput ? qtyInput.value : 1) || 1;
+    const meta = window.serviceCache ? window.serviceCache[rowIndex] : null;
+    let price = meta ? (parseFloat(meta.price) || 0) : 0;
+
+    // Collect custom variables for row
+    const cfWrap = document.getElementById('cf-wrap-' + rowIndex);
+    let variables = { qty: qty, price: price };
+
+    // Pre-populate all known custom field variable names with 0
+    if (meta && meta.fields && Array.isArray(meta.fields)) {
+        meta.fields.forEach(function(f) {
+            if (f.variable_name) {
+                variables[f.variable_name] = 0;
+            }
+        });
+    }
+
+    if (cfWrap) {
+        cfWrap.querySelectorAll('.cf-input').forEach(function(inp) {
+            const vname = inp.getAttribute('data-var');
+            if (vname) {
+                const val = parseFloat(inp.value);
+                variables[vname] = isNaN(val) ? 0 : val;
+            }
+        });
+    }
+
+    // If formula exists, evaluate safely with fallback
+    if (meta && meta.total_formula && meta.total_formula.trim()) {
+        try {
+            let expr = meta.total_formula;
+            const hasQtyInFormula = /\bqty\b/.test(expr);
+
+            // Replace known variables, longest names first
+            const sortedKeys = Object.keys(variables).sort(function(a, b) { return b.length - a.length; });
+            for (let i = 0; i < sortedKeys.length; i++) {
+                const k = sortedKeys[i];
+                const regex = new RegExp('\\b' + k + '\\b', 'g');
+                expr = expr.replace(regex, '(' + variables[k] + ')');
+            }
+
+            // Replace any remaining unused variable names/words with 0
+            expr = expr.replace(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g, '0');
+
+            // Sanitize expression to only valid math characters
+            expr = expr.replace(/[^0-9\+\-\*\/\.\(\)\s]/g, '');
+
+            let res = Function('"use strict"; return (' + expr + ');')();
+            if (isFinite(res) && res > 0) {
+                if (!hasQtyInFormula) {
+                    res = res * qty;
+                }
+                return parseFloat(res.toFixed(2));
+            }
+            return price * qty;
+        } catch(e) {
+            return price * qty;
+        }
+    }
+    return price * qty;
+}
+
+function updateEstimatedTotals() {
+    let subtotal = 0;
+    const lineWrappers = document.querySelectorAll('.line-form-wrapper');
+    lineWrappers.forEach(function(wrap) {
+        const match = wrap.id.match(/\d+$/);
+        if (!match) return;
+        const rowIdx = parseInt(match[0], 10);
+        const lineAmt = calcLineEstimate(rowIdx);
+        subtotal += lineAmt;
+        const disp = document.getElementById('line-amt-' + rowIdx);
+        if (disp) {
+            disp.textContent = lineAmt > 0 ? '₹' + lineAmt.toFixed(2) : '';
+        }
+    });
+
+    const subBadge = document.getElementById('step1-live-total-badge');
+    if (subBadge) subBadge.textContent = 'Subtotal: ₹' + subtotal.toFixed(2);
+
+    const dispSub = document.getElementById('display-subtotal');
+    if (dispSub) dispSub.textContent = '₹' + subtotal.toFixed(2);
+
+    const discountInput = document.getElementById('id_discount');
+    const discount = discountInput ? (parseFloat(discountInput.value) || 0) : 0;
+    const netTotal = Math.max(0, subtotal - discount);
+
+    const dispNet = document.getElementById('display-net-total');
+    if (dispNet) dispNet.textContent = '₹' + netTotal.toFixed(2);
+
+    window.currentBillSubtotal = subtotal;
+    window.currentBillNetTotal = netTotal;
+    updateSplitStatus();
+}
+
+function handlePaymentModeChange() {
+    const payModeSel = document.getElementById('id_payment_mode');
+    const splitSection = document.getElementById('split-payment-section');
+    if (!payModeSel || !splitSection) return;
+
+    // Show split rows if split amounts are filled or if user chooses to split
+    updateSplitStatus();
+}
+
+function updateSplitStatus() {
+    let paidSum = 0;
+    let hasSplitAmount = false;
+    document.querySelectorAll('.pay-row input[name$="-amount"]').forEach(function(inp) {
+        const val = parseFloat(inp.value);
+        if (!isNaN(val) && val > 0) {
+            paidSum += val;
+            hasSplitAmount = true;
+        }
+    });
+
+    const netTotal = window.currentBillNetTotal || 0;
+    const splitSection = document.getElementById('split-payment-section');
+    const splitBadge = document.getElementById('split-status-badge');
+
+    if (hasSplitAmount) {
+        if (splitSection) splitSection.style.display = 'block';
+    }
+
+    const remaining = Math.max(0, netTotal - paidSum);
+    if (splitBadge) {
+        if (paidSum >= netTotal && netTotal > 0) {
+            splitBadge.className = 'badge text-bg-success px-3 py-1';
+            splitBadge.textContent = 'Fully Allocated: ₹' + paidSum.toFixed(2);
+        } else {
+            splitBadge.className = 'badge text-bg-warning px-3 py-1';
+            splitBadge.textContent = 'Remaining: ₹' + remaining.toFixed(2);
+        }
+    }
+}
+
+function autoFillRemaining() {
+    let paidSum = 0;
+    const rows = document.querySelectorAll('.pay-row');
+    let targetInput = null;
+
+    rows.forEach(function(row) {
+        const amtInput = row.querySelector('input[name$="-amount"]');
+        if (amtInput) {
+            const val = parseFloat(amtInput.value);
+            if (!isNaN(val) && val > 0) {
+                paidSum += val;
+            } else if (!targetInput) {
+                targetInput = amtInput;
+            }
+        }
+    });
+
+    const netTotal = window.currentBillNetTotal || 0;
+    const remaining = Math.max(0, netTotal - paidSum);
+    if (remaining > 0) {
+        if (!targetInput) {
+            addPayRow();
+            const newRows = document.querySelectorAll('.pay-row');
+            targetInput = newRows[newRows.length - 1].querySelector('input[name$="-amount"]');
+        }
+        if (targetInput) {
+            targetInput.value = remaining.toFixed(2);
+            updateSplitStatus();
+        }
+    }
+}
+
+function goToStep2() {
+    // Check if at least 1 service is selected
+    let hasService = false;
+    document.querySelectorAll('.line-form-wrapper select[name$="-service"]').forEach(function(sel) {
+        if (sel.value) hasService = true;
+    });
+
+    if (!hasService) {
+        alert('Kripya kam se kam ek Service select karein.');
+        return;
+    }
+
+    updateEstimatedTotals();
+
+    document.getElementById('step-1-container').style.display = 'none';
+    document.getElementById('step-2-container').style.display = 'block';
+
+    document.getElementById('step-title').textContent = 'Step 2: Payment & Checkout';
+    document.getElementById('badge-step-1').className = 'badge bg-light text-muted border px-3 py-2';
+    document.getElementById('badge-step-2').className = 'badge bg-success px-3 py-2';
+
+    // Auto-show split section if multiple pay rows exist
+    const splitSection = document.getElementById('split-payment-section');
+    if (splitSection) splitSection.style.display = 'block';
+
+    window.scrollTo({ top: document.getElementById('billing-card').offsetTop - 20, behavior: 'smooth' });
+}
+
+function goToStep1() {
+    document.getElementById('step-2-container').style.display = 'none';
+    document.getElementById('step-1-container').style.display = 'block';
+
+    document.getElementById('step-title').textContent = 'Step 1: Services & Work Entry';
+    document.getElementById('badge-step-1').className = 'badge bg-primary px-3 py-2';
+    document.getElementById('badge-step-2').className = 'badge bg-light text-muted border px-3 py-2';
+
+    window.scrollTo({ top: document.getElementById('billing-card').offsetTop - 20, behavior: 'smooth' });
+}
+
+function submitBillingForm() {
+    // Check for Udhaar without a customer
+    const custSelect = document.getElementById('id_customer');
+    const custName = document.getElementById('id_customer_name');
+    const createCustCheck = document.getElementById('id_create_customer');
+    const payModeSel = document.getElementById('id_payment_mode');
+
+    const hasCustomer = (custSelect && custSelect.value) || 
+                        (custName && custName.value.trim() && createCustCheck && createCustCheck.checked);
+
+    let isUdhaar = (payModeSel && payModeSel.value === 'CREDIT');
+    document.querySelectorAll('.pay-row select[name$="-mode"]').forEach(function(sel) {
+        if (sel.value === 'CREDIT') isUdhaar = true;
+    });
+
+    // Check if total paid is less than net total
+    let paidSum = 0;
+    let hasPayAmounts = false;
+    document.querySelectorAll('.pay-row input[name$="-amount"]').forEach(function(inp) {
+        const val = parseFloat(inp.value);
+        if (!isNaN(val) && val > 0) {
+            paidSum += val;
+            hasPayAmounts = true;
+        }
+    });
+
+    const netTotal = window.currentBillNetTotal || 0;
+    if (hasPayAmounts && paidSum < netTotal) {
+        isUdhaar = true; // Partial remaining balance is Udhaar
+    }
+
+    if (isUdhaar && !hasCustomer) {
+        // Show Udhaar modal prompt
+        const modalEl = document.getElementById('udhaarModal');
+        const modal = new bootstrap.Modal(modalEl);
+        const nameField = document.getElementById('modal-cust-name');
+        const phoneField = document.getElementById('modal-cust-phone');
+        if (nameField && custName) nameField.value = custName.value;
+        const formPhone = document.getElementById('id_customer_phone');
+        if (phoneField && formPhone) phoneField.value = formPhone.value;
+        modal.show();
+        return;
+    }
+
+    document.getElementById('billing-form').submit();
+}
+
+function saveCustomerAndContinueUdhaar() {
+    const nameVal = (document.getElementById('modal-cust-name').value || '').trim();
+    const phoneVal = (document.getElementById('modal-cust-phone').value || '').trim();
+
+    if (!nameVal) {
+        alert('Kripya Customer ka Naam darj karein.');
+        return;
+    }
+
+    const custName = document.getElementById('id_customer_name');
+    const custPhone = document.getElementById('id_customer_phone');
+    const createCustCheck = document.getElementById('id_create_customer');
+
+    if (custName) custName.value = nameVal;
+    if (custPhone) custPhone.value = phoneVal;
+    if (createCustCheck) createCustCheck.checked = true;
+
+    const modalEl = document.getElementById('udhaarModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
+
+    document.getElementById('billing-form').submit();
+}
 
 function addPayRow() {
     const totalInput = document.querySelector('input[name="pay-TOTAL_FORMS"]');
@@ -279,9 +744,63 @@ function addPayRow() {
         el.classList.remove('is-invalid');
         const err = el.closest('div') ? el.closest('div').querySelector('.invalid-feedback') : null;
         if (err) err.remove();
+        el.addEventListener('input', updateSplitStatus);
+        el.addEventListener('change', updateSplitStatus);
     });
     rows[rows.length - 1].after(clone);
     totalInput.value = idx + 1;
+    updateSplitStatus();
+}
+
+function addLineRow() {
+    const totalInput = document.querySelector('input[name="line-TOTAL_FORMS"]');
+    if (!totalInput) return;
+    const idx = parseInt(totalInput.value, 10);
+    const wrappers = document.querySelectorAll('.line-form-wrapper');
+    if (!wrappers.length) return;
+
+    const clone = wrappers[wrappers.length - 1].cloneNode(true);
+    clone.id = 'line-wrap-' + idx;
+
+    const amtDisp = clone.querySelector('.line-amount-display');
+    if (amtDisp) {
+        amtDisp.id = 'line-amt-' + idx;
+        amtDisp.textContent = '';
+    }
+
+    const cfWrap = clone.querySelector('.cf-wrap');
+    if (cfWrap) {
+        cfWrap.id = 'cf-wrap-' + idx;
+        cfWrap.setAttribute('data-row', idx);
+        cfWrap.innerHTML = '';
+    }
+
+    clone.querySelectorAll('input, select').forEach(function (el) {
+        el.name = el.name.replace(/line-\d+-/, 'line-' + idx + '-');
+        el.id = el.id.replace(/line-\d+-/, 'line-' + idx + '-');
+        if (el.type === 'checkbox') {
+            el.checked = false;
+        } else if (el.name.endsWith('-qty')) {
+            el.value = '1';
+        } else if (el.name.endsWith('-id')) {
+            el.value = '';
+        } else if (el.tagName === 'INPUT') {
+            el.value = '';
+        } else if (el.tagName === 'SELECT') {
+            el.selectedIndex = 0;
+        }
+        el.classList.remove('is-invalid');
+        const err = el.closest('div') ? el.closest('div').querySelector('.invalid-feedback, .text-danger') : null;
+        if (err) err.remove();
+    });
+
+    wrappers[wrappers.length - 1].after(clone);
+    totalInput.value = idx + 1;
+
+    if (window.bindLineRow) {
+        window.bindLineRow(idx);
+    }
+    updateEstimatedTotals();
 }
 </script>
 {% endif %}

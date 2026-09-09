@@ -37,6 +37,11 @@ _EDITABLE_FIELDS = (
     "hourly_rate",
     "can_create_bills",
     "can_manage_topup",
+    "can_record_expenses",
+    "can_collect_personal_upi",
+    "can_view_shop_finance",
+    "can_manage_permissions",
+    "can_manage_customer_credit",
 )
 
 
@@ -103,6 +108,7 @@ class EmployeeService:
             hourly_rate=data.get("hourly_rate") or 0,
             can_create_bills=bool(data.get("can_create_bills", False)),
             can_manage_topup=bool(data.get("can_manage_topup", False)),
+            can_manage_customer_credit=bool(data.get("can_manage_customer_credit", False)),
             created_by=by,
             updated_by=by,
         )
@@ -140,6 +146,38 @@ class EmployeeService:
         employee.updated_by = by
         employee.save(update_fields=["can_manage_topup", "updated_by", "updated_at"])
         sync_employee_permissions(employee)
+        return employee
+
+    @staticmethod
+    def toggle_personal_upi_access(employee: Employee, *, by=None) -> Employee:
+        """Toggle personal UPI / flexible payment collection permission for rush hours."""
+        employee.can_collect_personal_upi = not employee.can_collect_personal_upi
+        employee.updated_by = by
+        employee.save(update_fields=["can_collect_personal_upi", "updated_by", "updated_at"])
+        return employee
+
+    @staticmethod
+    def toggle_shop_finance_access(employee: Employee, *, by=None) -> Employee:
+        """Toggle Entire Shop Main Galla and Shop UPI Book view access."""
+        employee.can_view_shop_finance = not employee.can_view_shop_finance
+        employee.updated_by = by
+        employee.save(update_fields=["can_view_shop_finance", "updated_by", "updated_at"])
+        return employee
+
+    @staticmethod
+    def toggle_manage_permissions_access(employee: Employee, *, by=None) -> Employee:
+        """Toggle permission management access (allowing staff to set permissions for others)."""
+        employee.can_manage_permissions = not employee.can_manage_permissions
+        employee.updated_by = by
+        employee.save(update_fields=["can_manage_permissions", "updated_by", "updated_at"])
+        return employee
+
+    @staticmethod
+    def toggle_customer_credit_access(employee: Employee, *, by=None) -> Employee:
+        """Toggle customer credit management permission (give/revoke)."""
+        employee.can_manage_customer_credit = not employee.can_manage_customer_credit
+        employee.updated_by = by
+        employee.save(update_fields=["can_manage_customer_credit", "updated_by", "updated_at"])
         return employee
 
     @staticmethod

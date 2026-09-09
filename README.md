@@ -6,11 +6,10 @@ An ERP platform that combines CRM, Billing, Accounting, Employee Management,
 Inventory, Customer Management, Wallet Engine, Cash Book, Bank Ledger,
 Reporting and Audit — built on Django.
 
-> Status: **Sprint 7 (Bank Routing, Granular Permissions & Responsive UI) complete.**
-> System now includes default bank routing (AEPS cash withdrawal), granular staff billing
-> and top-up permission toggles (give/revoke), responsive collapsible sidebar with mobile drawer,
-> 1-click WhatsApp receipt sharing, 80mm thermal receipt printing, low-stock WhatsApp alerts,
-> full inventory management with WAC, formula-driven pricing, customer wallet, and gapless audit ledgers.
+> Status: **Sprint 8 (Shop UPI Book, Multi-Wallet Float Lifecycle, Customer Credit Audit Trail & Real-Time Dashboard) complete.**
+> System now includes dedicated Shop UPI Book & Pool ledger, multi-wallet float lifecycle (Cash & Online counter wallets),
+> strict granular staff scoping (`can_view_shop_finance`, `can_manage_customer_credit`), Customer Credit & Advance audit trail (`CustomerCreditLog`),
+> Realized vs Billed Margin P&L recognition, and live Dashboard Total Shop Money metrics.
 
 ---
 
@@ -40,10 +39,11 @@ apps/
 │                current-user middleware, template tags, context processors
 ├── accounts/    Custom User (AbstractBaseUser), login throttling,
 │                profile, admin
-├── employees/   Employee HR profile, roles, role<->group sync, wallets,
-│                daily work log, CBVs
-├── finance/     Cash Book, Bank Ledger, derived balances, services
-├── customers/   Customer profiles + credit limits + advance balance
+├── employees/   Employee HR profile, roles, role<->group sync, multi-wallets (Cash & Online),
+│                daily work log, granular permission toggles, CBVs
+├── finance/     Cash Book (Physical Drawer), Shop UPI Book (Digital Pool), Bank Ledger,
+│                derived balances, atomic cross-transfers & float services
+├── customers/   Customer profiles + credit limits + prepaid advance balances + credit audit log
 ├── services/    Service catalog + free-form categories + custom fields
 │                (role-gated, per-service inputs captured on the bill;
 │                formula pricing via total/income formulas + passthrough type)
@@ -51,8 +51,8 @@ apps/
 │                thermal receipts (80mm), customer-wallet payments, formula pricing
 ├── inventory/   Stock items, consumable tracking, Weighted Average Cost (WAC),
 │                stock movements, cash book integration, low-stock alerts
-├── reports/     P&L, bank/wallet statements, ledger, salary, analytics, CSV
-├── pages/       Dashboard / home pages
+├── reports/     Realized P&L, bank/wallet statements, ledger, salary, analytics, CSV
+├── pages/       Dashboard (Shop Main Drawer, Total Shop Money, Shop UPI Pool) / home pages
 └── workentry/   WorkEntry (history only; counter UI retired in Sprint 4.5)
 ```
 
@@ -68,6 +68,7 @@ apps/
 | 5      | Inventory (Stock In/Out, WAC, Low-Stock Alerts, Cash Book Integration) | ✅ Done |
 | 6      | 1-Click WhatsApp Share, Thermal Receipts (80mm), Low-Stock WhatsApp Alerts | ✅ Done |
 | 7      | Bank Routing (AEPS Default), Staff Billing Permissions (Give/Revoke), Responsive UI | ✅ Done |
+| 8      | Shop UPI Book, Multi-Wallet Float Lifecycle, Customer Credit Audit Trail, Realized P&L & Dashboard KPIs | ✅ Done |
 
 ---
 

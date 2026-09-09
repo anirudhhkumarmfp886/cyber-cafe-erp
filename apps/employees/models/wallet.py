@@ -54,6 +54,8 @@ class WalletTransactionCategory(models.TextChoices):
     PAYOUT = "PAYOUT", "Customer Payout / Transfer"
     EXPENSE = "EXPENSE", "Expense"
     ADJUSTMENT = "ADJUSTMENT", "Adjustment"
+    FLOAT_IN = "FLOAT_IN", "Daily Float Received"
+    FLOAT_OUT = "FLOAT_OUT", "Daily Float Returned"
 
 
 class Wallet(BaseModel):

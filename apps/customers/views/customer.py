@@ -16,6 +16,7 @@ from apps.customers.forms.customer import CreditDepositForm, CustomerForm
 from apps.customers.models import Customer
 from apps.customers.selectors.customer_selector import CustomerSelector
 from apps.customers.services.customer_service import CustomerService
+from apps.employees.services.role_service import user_can_manage_customer_credit
 
 
 class CustomerListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -32,7 +33,7 @@ class CustomerListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         context["page_title"] = "Customers"
         context["q"] = self.request.GET.get("q", "")
         if self.request.user.has_perm("customers.add_customer"):
-            context["customer_form"] = CustomerForm()
+            context["customer_form"] = CustomerForm(user=self.request.user)
         return context
 
     def get_form_error_response(self, form):
@@ -44,7 +45,7 @@ class CustomerListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     def post(self, request):
         if not request.user.has_perm("customers.add_customer"):
             return self.handle_no_permission()
-        form = CustomerForm(request.POST)
+        form = CustomerForm(request.POST, user=request.user)
         if form.is_valid():
             try:
                 customer = CustomerService.create_customer(
@@ -69,14 +70,20 @@ class CustomerDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["page_title"] = self.object.full_name
+        customer = self.object
+        context["page_title"] = customer.full_name
+        context["can_manage_credit"] = user_can_manage_customer_credit(self.request.user)
+        context["financial_summary"] = CustomerSelector.get_financial_summary(customer)
+        context["invoices"] = CustomerSelector.get_invoices(customer)
+        context["prepaid_logs"] = CustomerSelector.get_prepaid_logs(customer)
+        context["limit_logs"] = CustomerSelector.get_limit_logs(customer)
         if self.request.user.has_perm("customers.change_customer"):
             context["credit_form"] = CreditDepositForm()
         return context
 
 
 class CustomerCreditDepositView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    """Deposit into / refund a customer's pre-paid credit balance."""
+    """Deposit into / refund a customer's pre-paid credit balance and route to staff wallet."""
     permission_required = "customers.change_customer"
     http_method_names = ["post"]
 
@@ -87,11 +94,16 @@ class CustomerCreditDepositView(LoginRequiredMixin, PermissionRequiredMixin, Vie
             amount = form.cleaned_data["amount"]
             if form.cleaned_data["direction"] == "REFUND":
                 amount = -amount
+            payment_mode = form.cleaned_data.get("payment_mode") or "CASH"
+            payment_destination = form.cleaned_data.get("payment_destination") or "STAFF"
+            description = form.cleaned_data.get("description", "")
             try:
                 CustomerService.adjust_credit(
                     customer=customer,
                     amount=amount,
-                    description=form.cleaned_data.get("description", ""),
+                    payment_mode=payment_mode,
+                    payment_destination=payment_destination,
+                    description=description,
                     by=request.user,
                 )
             except ValueError as exc:
@@ -117,6 +129,11 @@ class CustomerUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
 
     def get_object(self, queryset=None):
         return get_object_or_404(Customer, id=self.kwargs["pk"])
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

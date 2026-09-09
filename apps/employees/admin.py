@@ -16,7 +16,8 @@ class EmployeeAdmin(BaseAdmin):
 
 @admin.register(Wallet)
 class WalletAdmin(BaseAdmin):
-    list_display = ("employee", "employee_code", "is_active", "created_at")
+    list_display = ("employee", "wallet_type", "employee_code", "current_balance", "is_active", "created_at")
+    list_filter = ("wallet_type", "is_active")
     list_select_related = ("employee",)
     search_fields = ("employee__employee_code", "employee__full_name")
 
@@ -24,11 +25,15 @@ class WalletAdmin(BaseAdmin):
     def employee_code(self, obj):
         return obj.employee.employee_code
 
+    @admin.display(description="Current Balance (₹)")
+    def current_balance(self, obj):
+        return f"₹{obj.balance:,.2f}"
+
 
 @admin.register(WalletTransaction)
 class WalletTransactionAdmin(BaseAdmin):
-    list_display = ("reference_number", "wallet", "entry_date", "transaction_type", "category", "amount")
-    list_filter = ("transaction_type", "category", "entry_date")
+    list_display = ("reference_number", "wallet", "entry_date", "transaction_type", "category", "amount", "balance_after", "created_by")
+    list_filter = ("transaction_type", "category", "wallet__wallet_type", "entry_date")
     search_fields = ("reference_number", "description", "related_reference", "wallet__employee__full_name")
     autocomplete_fields = ("wallet",)
 

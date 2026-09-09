@@ -14,6 +14,7 @@ from apps.employees.services.wallet_service import WalletService
 from apps.finance.models import CashBookEntry
 from apps.finance.models.enums import CashEntryCategory
 from apps.finance.services.bank_service import BankService
+from apps.finance.services.cashbook_service import CashBookService
 from apps.services.services.service_service import ServiceService
 
 User = get_user_model()
@@ -143,6 +144,12 @@ class FormulaBillingServiceTests(TestCase):
         )
 
     def test_cash_passthrough_books_cash_out(self):
+        CashBookService.record_income(
+            amount=5000,
+            category=CashEntryCategory.OWNER_DEPOSIT,
+            payment_mode="CASH",
+            by=self.owner,
+        )
         WalletService.top_up(
             employee=self.manager.employee,
             wallet_type=WalletType.CASH,
@@ -161,7 +168,103 @@ class FormulaBillingServiceTests(TestCase):
         wallet_entry = line.wallet_entry
         self.assertIsNotNone(wallet_entry)
         self.assertEqual(wallet_entry.amount, Decimal("982.00"))
+        # When staff has a cash wallet, the passthrough is debited from their wallet
+        # and not duplicated in the CashBook
+        self.assertFalse(CashBookEntry.objects.filter(category=CashEntryCategory.CASH_OUT).exists())
+
+    def test_cash_passthrough_direct_owner_billing_books_cash_out_in_cashbook(self):
+        service, cash, pct = self._formula_service(
+            name="Direct Withdrawal", passthrough_type="CASH"
+        )
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": 0},
+            lines=[{"service": service, "qty": 1, "custom": {str(cash.pk): "1000", str(pct.pk): "2"}}],
+            by=self.owner,  # superuser has no employee wallet profile
+        )
+        line = invoice.lines.get()
+        self.assertIsNone(line.wallet_entry)
+        self.assertIsNotNone(line.cash_entry)
         self.assertTrue(CashBookEntry.objects.filter(category=CashEntryCategory.CASH_OUT).exists())
+
+    def test_formula_service_multiplies_with_quantity_correctly(self):
+        self._top_up_online(amount=5000)
+        service = ServiceService.create_service(
+            data={
+                "name": "Challan Payment",
+                "new_category": "Payments",
+                "price": 1,
+                "passthrough_type": "ONLINE",
+                "total_formula": "amount_paid + fee",
+                "income_formula": "fee",
+            },
+            by=self.owner,
+        )
+        amt_f = ServiceService.create_custom_field(
+            service,
+            data={"label": "Amount Paid", "variable_name": "amount_paid", "field_type": "NUMBER", "required": True},
+            by=self.owner,
+        )
+        fee_f = ServiceService.create_custom_field(
+            service,
+            data={"label": "Fee", "variable_name": "fee", "field_type": "NUMBER", "required": True},
+            by=self.owner,
+        )
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": 0},
+            lines=[{
+                "service": service,
+                "qty": 2,
+                "custom": {str(amt_f.pk): "100", str(fee_f.pk): "50"},
+            }],
+            by=self.manager,
+        )
+        line = invoice.lines.get()
+        # Per-unit total is 100 + 50 = 150. For qty=2, total amount is 300, unit_price is 150, income is 100 (50*2).
+        self.assertEqual(line.qty, Decimal("2"))
+        self.assertEqual(line.unit_price, Decimal("150.00"))
+        self.assertEqual(line.amount, Decimal("300.00"))
+        self.assertEqual(line.income_amount, Decimal("100.00"))
+        self.assertEqual(line.pass_through_amount, Decimal("200.00"))
+
+    def test_invoice_income_amount_deducts_discount(self):
+        self._top_up_online(amount=5000)
+        service = ServiceService.create_service(
+            data={
+                "name": "Challan Payment",
+                "new_category": "Payments",
+                "price": 1,
+                "passthrough_type": "ONLINE",
+                "total_formula": "amount_paid + fee",
+                "income_formula": "fee",
+            },
+            by=self.owner,
+        )
+        amt_f = ServiceService.create_custom_field(
+            service,
+            data={"label": "Amount Paid", "variable_name": "amount_paid", "field_type": "NUMBER", "required": True},
+            by=self.owner,
+        )
+        fee_f = ServiceService.create_custom_field(
+            service,
+            data={"label": "Fee", "variable_name": "fee", "field_type": "NUMBER", "required": True},
+            by=self.owner,
+        )
+        invoice = BillingService.create_invoice(
+            data={"payment_mode": "CASH", "discount": Decimal("7.00")},
+            lines=[{
+                "service": service,
+                "qty": 2,
+                "custom": {str(amt_f.pk): "100", str(fee_f.pk): "50"},
+            }],
+            by=self.manager,
+        )
+        # Subtotal: 300, Discount: 7, Total: 293
+        # Pass-through: 200, Line income sum: 100, Net invoice income: 100 - 7 = 93
+        self.assertEqual(invoice.subtotal, Decimal("300.00"))
+        self.assertEqual(invoice.discount, Decimal("7.00"))
+        self.assertEqual(invoice.total, Decimal("293.00"))
+        self.assertEqual(invoice.pass_through_amount, Decimal("200.00"))
+        self.assertEqual(invoice.income_amount, Decimal("93.00"))
 
 
 class CustomerWalletPaymentTests(TestCase):
@@ -251,3 +354,4 @@ class CustomerWalletPaymentTests(TestCase):
         self.assertTrue(CashBookEntry.objects.filter(id=entry_id, is_active=True).exists())
         BillingService.soft_delete_invoice(invoice=invoice, by=self.owner)
         self.assertFalse(CashBookEntry.objects.filter(id=entry_id, is_active=True).exists())
+

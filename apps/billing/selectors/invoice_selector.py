@@ -14,10 +14,11 @@ from apps.customers.models import Customer
 class InvoiceSelector:
     @staticmethod
     def list_invoices(filters: dict):
-        queryset = Invoice.objects.select_related("customer").order_by("-billed_on", "-created_at")
+        queryset = Invoice.objects.select_related("customer", "created_by").order_by("-billed_on", "-created_at")
         status = filters.get("status")
         from_date = filters.get("from_date")
         to_date = filters.get("to_date")
+        staff = filters.get("staff")
         q = filters.get("q", "")
         if status:
             queryset = queryset.filter(status=status)
@@ -25,6 +26,8 @@ class InvoiceSelector:
             queryset = queryset.filter(billed_on__gte=from_date)
         if to_date:
             queryset = queryset.filter(billed_on__lte=to_date)
+        if staff:
+            queryset = queryset.filter(created_by_id=staff)
         if q:
             queryset = queryset.filter(
                 Q(customer__full_name__icontains=q)
