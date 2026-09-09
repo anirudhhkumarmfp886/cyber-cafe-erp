@@ -90,12 +90,21 @@ class BaseAdmin(admin.ModelAdmin):
         description="🔥 Permanently Hard-Delete selected records (Cannot be undone)"
     )
     def hard_delete(self, request, queryset):
-        """Permanently remove selected rows from the database."""
+        """Permanently remove selected rows from the database.
+        
+        If an active row is selected, it is moved to trash (soft-deleted) first.
+        Rows that are already in trash are permanently purged.
+        """
         selected = request.POST.getlist(ACTION_CHECKBOX_NAME)
         objs = self.model.all_objects.filter(pk__in=selected)
         purged = 0
+        trashed = 0
         blocked = 0
         for obj in objs:
+            if obj.deleted_at is None:
+                obj.soft_delete(by=request.user)
+                trashed += 1
+                continue
             try:
                 obj.delete()
                 purged += 1
@@ -105,6 +114,8 @@ class BaseAdmin(admin.ModelAdmin):
         parts = []
         if purged:
             parts.append(f"{purged} permanently deleted from DB")
+        if trashed:
+            parts.append(f"{trashed} moved to trash (soft-deleted)")
         if blocked:
             parts.append(f"{blocked} skipped — protected by related records")
         summary = "; ".join(parts) if parts else "Nothing deleted."

@@ -64,10 +64,13 @@ Tests: full suite passes. Ruff lint clean. All migrations applied.
 6. **Strict Form Validations & Ledger Reconciliations**:
    - Compulsory Source / Channel selection in Owner Inflow/Outflow (Direct Cash vs Bank Transfer) to prevent unsynced bank transactions.
    - Reconciled all bank transfers (`BANK-000037`, `BANK-000038`, `BANK-000039`) with Cash Drawer and Shop UPI Book.
-1. **Per-Service & Global Default Bank Routing**:
+7. **Per-Service & Global Default Bank Routing**:
    - Added `is_default` flag to `BankAccount` with single-active default enforcement.
    - Added `default_bank_account` to `Service` for automatic bank ledger routing (e.g., AEPS cash withdrawal routes directly to CBI bank account).
    - Added header-level Bank Account dropdown in `/billing/` for instant UPI/Bank selection without opening split payment dialogs.
+8. **UI Stability & Admin Soft-Delete Safety Enhancements**:
+   - **Dashboard Responsive Card Layout**: Enforced `overflow-hidden`, `flex-grow-1`, `min-width: 0`, and `text-truncate` across all dashboard stat cards, completely resolving card clipping and text overlaps for long service names (e.g., "Online form fill-up").
+   - **Admin Soft-Delete Safety Fallback**: Updated `BaseAdmin.hard_delete` action so that active records selected are safely moved to trash (`soft_delete`) first, while only pre-trashed records are permanently purged from the database. Fully covered by `AdminSoftDeleteTests`.
    - Enhanced thermal POS receipt (80mm) and WhatsApp receipt sharing with explicit cash withdrawal, commission/fee breakdowns, and accurate net totals.
 2. **Staff Billing & Top-Up Permissions (Give / Revoke Access)**:
    - Added `can_create_bills` and `can_manage_topup` flags to `Employee` model.

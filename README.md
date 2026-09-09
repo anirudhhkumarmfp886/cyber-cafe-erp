@@ -6,10 +6,10 @@ An ERP platform that combines CRM, Billing, Accounting, Employee Management,
 Inventory, Customer Management, Wallet Engine, Cash Book, Bank Ledger,
 Reporting and Audit — built on Django.
 
-> Status: **Sprint 8 (Shop UPI Book, Multi-Wallet Float Lifecycle, Customer Credit Audit Trail & Real-Time Dashboard) complete.**
+> Status: **Sprint 8 (Shop UPI Book, Multi-Wallet Float Lifecycle, Customer Credit Audit Trail, Real-Time Dashboard & System Hardening) complete.**
 > System now includes dedicated Shop UPI Book & Pool ledger, multi-wallet float lifecycle (Cash & Online counter wallets),
 > strict granular staff scoping (`can_view_shop_finance`, `can_manage_customer_credit`), Customer Credit & Advance audit trail (`CustomerCreditLog`),
-> Realized vs Billed Margin P&L recognition, and live Dashboard Total Shop Money metrics.
+> Realized vs Billed Margin P&L recognition, live Dashboard Total Shop Money metrics, responsive stat cards layout, and admin soft-delete safety protections.
 
 ---
 
